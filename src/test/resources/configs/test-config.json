@@ -1,0 +1,8 @@
+{
+  "annotations": [
+    "ContextConfiguration",
+    "MyCustomAnnotation"
+  ],
+  "baseRef": "develop",
+  "targetRef": "HEAD"
+}
