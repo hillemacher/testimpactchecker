@@ -37,11 +37,30 @@ dependencies {
 }
 
 application {
-    mainClass = 'io.github.hillemacher.testimpactchecker.cli.TestImpactCheckerCLI'
+    mainClass = 'io.github.hillemacher.testimpactchecker.cli.TestImpactCheckerCli'
 }
 
 test {
     useJUnitPlatform()
+}
+
+sourceSets {
+    main {
+        java {
+            setSrcDirs(['src/main/java'])
+        }
+        resources {
+            setSrcDirs(['src/main/resources'])
+        }
+    }
+    test {
+        java {
+            setSrcDirs(['src/test/java'])
+        }
+        resources {
+            setSrcDirs(['src/test/resources'])
+        }
+    }
 }
 
 shadowJar {
