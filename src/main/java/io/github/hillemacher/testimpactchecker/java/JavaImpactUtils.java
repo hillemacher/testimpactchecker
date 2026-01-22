@@ -66,6 +66,7 @@ public class JavaImpactUtils {
 
 		final Set<Path> allTestFiles = new HashSet<>();
 		testDirPaths.forEach(testDirPath -> allTestFiles.addAll(getAllJavaFiles(testDirPath)));
+		final Set<String> allNames = buildChangedTypeNames(changedFilePaths, implementedInterfaces);
 
 		for (final Path testFilePath : allTestFiles) {
 			final CompilationUnit compilationUnit;
@@ -100,17 +101,6 @@ public class JavaImpactUtils {
 				log.debug("No matching annotation found for {}", testFilePath);
 				continue;
 			}
-
-			// Create list containing simple class name of changed class and the interfaces it implements.
-			// This can lead to false positives, but that's okay for now.
-			final Set<String> allNames = new HashSet<>();
-			allNames.addAll(changedFilePaths.stream()
-					.map(p -> FilenameUtils.getBaseName(p.toString()))
-					.collect(Collectors.toSet()));
-			allNames.addAll(implementedInterfaces.values()
-					.stream()
-					.flatMap(Collection::stream)
-					.collect(Collectors.toSet()));
 
 			final Set<String> referencedChangedClasses = new HashSet<>();
 			final Set<String> onlyMockedChangedClasses = new HashSet<>();
@@ -273,6 +263,22 @@ public class JavaImpactUtils {
 			log.error("Failed to parse {}", jsf.toFile(), e);
 			return null;
 		}
+	}
+
+	// Create list containing simple class name of changed class and the interfaces it implements.
+	// This can lead to false positives, but that's okay for now.
+	private Set<String> buildChangedTypeNames(
+			final Collection<Path> changedFilePaths,
+			final Map<Path, Set<String>> implementedInterfaces) {
+		final Set<String> allNames = new HashSet<>();
+		allNames.addAll(changedFilePaths.stream()
+				.map(p -> FilenameUtils.getBaseName(p.toString()))
+				.collect(Collectors.toSet()));
+		allNames.addAll(implementedInterfaces.values()
+				.stream()
+				.flatMap(Collection::stream)
+				.collect(Collectors.toSet()));
+		return allNames;
 	}
 
 }

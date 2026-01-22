@@ -5,6 +5,8 @@ import static org.mockito.Mockito.mock;
 import static org.mockito.Mockito.when;
 
 import java.io.IOException;
+import java.nio.charset.StandardCharsets;
+import java.nio.file.Files;
 import java.nio.file.Path;
 import java.nio.file.Paths;
 import java.util.HashSet;
@@ -16,6 +18,7 @@ import org.eclipse.jgit.diff.DiffEntry;
 import org.junit.jupiter.api.BeforeEach;
 import org.junit.jupiter.api.Test;
 import org.junit.jupiter.api.extension.ExtendWith;
+import org.junit.jupiter.api.io.TempDir;
 import org.mockito.MockedStatic;
 import org.mockito.Mockito;
 import org.mockito.junit.jupiter.MockitoExtension;
@@ -35,6 +38,9 @@ class JavaImpactUtilsTest {
 	private final Path testRepoRootPath = Paths.get("src", "test", "resources", "test-project");
 
 	private JavaParser javaParser = new JavaParser();
+
+	@TempDir
+	Path tempDir;
 
 	@BeforeEach
 	void setUp() {
@@ -92,8 +98,64 @@ class JavaImpactUtilsTest {
 		assertThat(relevantTests).containsOnly(Paths.get(testRepoRootPath.toString(), "foo", "src", "main", "test", "TestClassJSF.java"));
 	}
 
+	@Test
+	void testFindRelevantTestsIgnoresMissingAnnotation() throws IOException {
+		final ImpactCheckerConfig impactCheckerTestConfig = loadImpactCheckerConfig(this.testConfigPath);
+		final JavaImpactUtils javaImpactUtils = new JavaImpactUtils(javaParser, impactCheckerTestConfig);
+
+		final Path changedClassPath = Paths.get("src", "main", "java", "FooService.java");
+		final Path testDir = tempDir.resolve(Paths.get("module", "src", "test", "java"));
+		final Path testFile = testDir.resolve("NoAnnotationTest.java");
+
+		writeTestFile(testFile, """
+				import org.junit.jupiter.api.Test;
+				class NoAnnotationTest {
+					private FooService fooService;
+					@Test void test() {}
+				}
+				""");
+
+		final Set<Path> relevantTests = javaImpactUtils.findRelevantTests(
+				Set.of(changedClassPath),
+				Map.of(),
+				List.of(testDir));
+
+		assertThat(relevantTests).isEmpty();
+	}
+
+	@Test
+	void testFindRelevantTestsExcludesOnlyMockedAndReferencedClass() throws IOException {
+		final ImpactCheckerConfig impactCheckerTestConfig = loadImpactCheckerConfig(this.testConfigPath);
+		final JavaImpactUtils javaImpactUtils = new JavaImpactUtils(javaParser, impactCheckerTestConfig);
+
+		final Path changedClassPath = Paths.get("src", "main", "java", "FooService.java");
+		final Path testDir = tempDir.resolve(Paths.get("module", "src", "test", "java"));
+		final Path testFile = testDir.resolve("MockedAndReferencedTest.java");
+
+		writeTestFile(testFile, """
+				import org.junit.jupiter.api.Test;
+				import org.springframework.test.context.ContextConfiguration;
+				class MockedAndReferencedTest {
+					private FooService fooService;
+					@Test void test() { mock(FooService.class); }
+				}
+				""");
+
+		final Set<Path> relevantTests = javaImpactUtils.findRelevantTests(
+				Set.of(changedClassPath),
+				Map.of(),
+				List.of(testDir));
+
+		assertThat(relevantTests).isEmpty();
+	}
+
 	private ImpactCheckerConfig loadImpactCheckerConfig(Path testConfigPath) throws IOException {
 		return new ObjectMapper().readValue(testConfigPath.toFile(), ImpactCheckerConfig.class);
+	}
+
+	private void writeTestFile(final Path testFile, final String contents) throws IOException {
+		Files.createDirectories(testFile.getParent());
+		Files.writeString(testFile, contents, StandardCharsets.UTF_8);
 	}
 
 }

@@ -20,6 +20,9 @@ import lombok.extern.slf4j.Slf4j;
 @Slf4j
 public class TestImpactChecker {
 
+	private static final String MAIN_JAVA_DIR_SUFFIX = "src/main/java";
+	private static final String TEST_JAVA_DIR_SUFFIX = "src/test/java";
+
 	/**
 	 * Detects and returns the set of test files that are impacted by changes in the main Java source files
 	 * of the specified repository.
@@ -39,15 +42,11 @@ public class TestImpactChecker {
 	 * @return a set of paths to impacted test files; returns an empty set if no changed classes are detected
 	 */
 	public Set<Path> detectImpact(final Path repositoryPath, final ImpactCheckerConfig impactCheckerConfig) throws IOException {
-		final ParserConfiguration parserConfiguration = new ParserConfiguration();
-		parserConfiguration.setLanguageLevel(ParserConfiguration.LanguageLevel.JAVA_21);
-		final JavaParser parser = new JavaParser(parserConfiguration);
-
-		final JavaImpactUtils javaImpactUtils = new JavaImpactUtils(parser, impactCheckerConfig);
+		final JavaImpactUtils javaImpactUtils = createJavaImpactUtils(impactCheckerConfig);
 
 		// 1. Find all src/main/java directories in project (recursively)
-		final Set<Path> mainJavaDirs = findAllJSFDirs(repositoryPath, "src/main/java");
-		final Set<Path> testJavaDirs = findAllJSFDirs(repositoryPath, "src/test/java");
+		final Set<Path> mainJavaDirs = findAllJavaSourceDirs(repositoryPath, MAIN_JAVA_DIR_SUFFIX);
+		final Set<Path> testJavaDirs = findAllJavaSourceDirs(repositoryPath, TEST_JAVA_DIR_SUFFIX);
 
 		// 2. Get changed Java classes under all src/main/java dirs
 		final Set<Path> changedClassPath = javaImpactUtils.findChangedClassPaths(mainJavaDirs, repositoryPath);
@@ -68,7 +67,7 @@ public class TestImpactChecker {
 	}
 
 	// Recursively find all src/main/java or src/test/java dirs from a given root
-	private Set<Path> findAllJSFDirs(final Path root, final String part) {
+	private Set<Path> findAllJavaSourceDirs(final Path root, final String part) {
 		final Set<Path> dirs = new HashSet<>();
 		try (final Stream<Path> paths = Files.walk(root)) {
 			paths.filter(Files::isDirectory)
@@ -79,6 +78,13 @@ public class TestImpactChecker {
 		}
 
 		return dirs;
+	}
+
+	private JavaImpactUtils createJavaImpactUtils(final ImpactCheckerConfig impactCheckerConfig) {
+		final ParserConfiguration parserConfiguration = new ParserConfiguration();
+		parserConfiguration.setLanguageLevel(ParserConfiguration.LanguageLevel.JAVA_21);
+		final JavaParser parser = new JavaParser(parserConfiguration);
+		return new JavaImpactUtils(parser, impactCheckerConfig);
 	}
 
 }
