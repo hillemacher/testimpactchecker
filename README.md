@@ -41,6 +41,20 @@ The tool expects a JSON configuration file with the following fields:
 - **baseRef**: The base Git reference for comparison (e.g., `refs/heads/main`).
 - **targetRef**: The target Git reference for comparison (e.g., `HEAD`).
 
+### Compare a Specific Commit with a Target
+
+You can compare a specific commit against any target ref by setting `baseRef` to the commit hash
+and `targetRef` to the desired branch, tag, or commit. For example, to compare commit
+`abc1234` against `main`:
+
+```json
+{
+  "annotations": ["ContextConfiguration"],
+  "baseRef": "abc1234",
+  "targetRef": "refs/heads/main"
+}
+```
+
 ## Requirements
 
 - Java 21 or later
