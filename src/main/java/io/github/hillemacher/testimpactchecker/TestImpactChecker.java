@@ -64,17 +64,23 @@ public class TestImpactChecker {
    */
   public Map<Path, Set<String>> detectImpactWithCauses(final Path repositoryPath,
       final ImpactCheckerConfig impactCheckerConfig) throws IOException {
+    log.info("Discovering Java source directories under {}", repositoryPath);
     final JavaImpactUtils javaImpactUtils = createJavaImpactUtils(impactCheckerConfig);
 
     // 1. Find all src/main/java directories in project (recursively)
     final Set<Path> mainJavaDirs = findAllJavaSourceDirs(repositoryPath, MAIN_JAVA_DIR_SUFFIX);
     final Set<Path> testJavaDirs = findAllJavaSourceDirs(repositoryPath, TEST_JAVA_DIR_SUFFIX);
+    log.info("Discovered {} main Java source directories and {} test Java source directories",
+        mainJavaDirs.size(), testJavaDirs.size());
+    log.debug("Main Java source directories: {}", mainJavaDirs);
+    log.debug("Test Java source directories: {}", testJavaDirs);
 
     // 2. Get changed Java classes under all src/main/java dirs
     final Set<Path> changedClassPath =
         javaImpactUtils.findChangedClassPaths(mainJavaDirs, repositoryPath);
 
     if (changedClassPath == null) {
+      log.error("Unable to determine changed classes.");
       return Map.of();
     }
 
@@ -83,13 +89,22 @@ public class TestImpactChecker {
       return Map.of();
     }
 
-    log.debug("Changed classes: {}",
-        changedClassPath.stream().map(Path::toString).collect(Collectors.joining(", ")));
+    log.info("Detected {} changed classes", changedClassPath.size());
+    log.debug("Changed classes: {}", changedClassPath.stream().map(Path::toString)
+        .collect(Collectors.joining(", ")));
 
     // 3. Scan all test classes for @ContextConfiguration and references to changed
     // classes
-    return javaImpactUtils.findRelevantTestsWithCauses(changedClassPath,
-        javaImpactUtils.findImplementedInterfaces(changedClassPath, repositoryPath), testJavaDirs);
+    final Map<Path, Set<String>> implementedInterfaces =
+        javaImpactUtils.findImplementedInterfaces(changedClassPath, repositoryPath);
+    log.info("Resolved implemented interfaces for {} changed classes", implementedInterfaces.size());
+    log.debug("Implemented interfaces by changed class: {}", implementedInterfaces);
+
+    final Map<Path, Set<String>> relevantTestsWithCauses = javaImpactUtils.findRelevantTestsWithCauses(
+        changedClassPath, implementedInterfaces, testJavaDirs);
+    log.info("Detected {} impacted tests", relevantTestsWithCauses.size());
+    log.debug("Impacted tests with causes: {}", relevantTestsWithCauses);
+    return relevantTestsWithCauses;
   }
 
   // Recursively find all src/main/java or src/test/java dirs from a given root

@@ -107,8 +107,11 @@ public class JavaImpactUtils {
     final Set<String> changedClassNames = changedFilePaths.stream()
         .map(this::toSimpleClassName)
         .collect(Collectors.toSet());
+    log.debug("Scanning {} test files for potential impact", allTestFiles.size());
+    log.debug("Referenced type to changed class map: {}", referencedTypeToChangedClasses);
 
     for (final Path testFilePath : allTestFiles) {
+      log.debug("Evaluating test file {}", testFilePath);
       final CompilationUnit compilationUnit;
       try (final FileInputStream in = new FileInputStream(testFilePath.toFile())) {
         final ParseResult<CompilationUnit> compilationUnitParseResult = javaParser.parse(in);
@@ -139,9 +142,14 @@ public class JavaImpactUtils {
         log.debug("No matching annotation found for {}", testFilePath);
         continue;
       }
+      log.debug("Matching annotation found for {}", testFilePath);
 
       final Set<String> causesForTest = new HashSet<>();
       final Set<String> onlyMockedChangedClasses = new HashSet<>();
+      final Set<String> referencedTypeNames = compilationUnit
+          .findAll(ClassOrInterfaceType.class).stream()
+          .map(ClassOrInterfaceType::getNameAsString)
+          .collect(Collectors.toSet());
 
       compilationUnit
           .findAll(MethodCallExpr.class)
@@ -157,19 +165,26 @@ public class JavaImpactUtils {
                       });
                 }
               });
+      if (!onlyMockedChangedClasses.isEmpty()) {
+        log.debug("Test {} mocks changed classes {}", testFilePath, onlyMockedChangedClasses);
+      }
 
-      compilationUnit
-          .findAll(ClassOrInterfaceType.class)
-          .forEach(
-              type -> {
-                final String typeName = type.getNameAsString();
-                causesForTest.addAll(referencedTypeToChangedClasses.getOrDefault(typeName, Set.of()));
-              });
+      referencedTypeNames.forEach(
+          typeName -> causesForTest.addAll(referencedTypeToChangedClasses.getOrDefault(typeName, Set.of())));
+      log.debug("Test {} references types {}", testFilePath, referencedTypeNames);
+      log.debug("Test {} resolved causes before mock filtering {}", testFilePath, causesForTest);
 
       causesForTest.removeAll(onlyMockedChangedClasses);
+      if (!onlyMockedChangedClasses.isEmpty()) {
+        log.debug("Test {} causes after mock filtering {}", testFilePath, causesForTest);
+      }
 
       if (!causesForTest.isEmpty()) {
+        log.debug("Including test {} with causes {}", testFilePath, causesForTest);
         relevantTestsWithCauses.put(testFilePath, causesForTest);
+      } else {
+        log.debug("Excluding test {} because no non-mocked changed class references were found",
+            testFilePath);
       }
     }
 
@@ -284,9 +299,11 @@ public class JavaImpactUtils {
           .collect(Collectors.toSet());
       if (!interfaces.isEmpty()) {
         implementedInterfaces.put(classPath, interfaces);
+        log.debug("Changed class {} implements interfaces {}", classPath, interfaces);
       }
     }
 
+    log.debug("Implemented interfaces discovered for {} changed classes", implementedInterfaces.size());
     return implementedInterfaces;
   }
 

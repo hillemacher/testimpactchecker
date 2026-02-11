@@ -27,6 +27,7 @@ Run the tool with the path to your project and the configuration JSON file as ar
 
 - `-p <projectPath>` or `--project <projectPath>`: Path to the root of the project to analyze. **(Required)**
 - `-c <configPath>` or `--config <configPath>`: Path to the JSON configuration file. **(Required)**
+- `-d` or `--debug`: Enable debug logging with detailed diagnostics. *(Optional)*
 - `-h` or `--help`: Show help and usage information.
 
 ### Example Output
@@ -91,7 +92,20 @@ Key dependencies include:
 
 ## Logging
 
-The application uses SLF4J for logging. Log output includes steps, errors, and relevant debug information.
+The application uses SLF4J for logging.
+
+- By default, the tool logs process progress at `INFO` level.
+- Use `--debug` to enable detailed diagnostics at `DEBUG` level.
+- Logs are written to `stderr`, while the structured impact report is written to `stdout`.
+
+Example:
+
+```bash
+java -jar TestImpactChecker-CLI-1.0-SNAPSHOT.jar \
+  --project /path/to/repo \
+  --config /path/to/config.json \
+  --debug
+```
 
 ## License
 

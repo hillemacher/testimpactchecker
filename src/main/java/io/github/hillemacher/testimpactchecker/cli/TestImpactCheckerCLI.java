@@ -27,6 +27,15 @@ import org.apache.commons.cli.ParseException;
 @Slf4j
 public class TestImpactCheckerCli {
 
+  private static final String SIMPLE_LOGGER_DEFAULT_LEVEL =
+      "org.slf4j.simpleLogger.defaultLogLevel";
+  private static final String SIMPLE_LOGGER_SHOW_DATE_TIME =
+      "org.slf4j.simpleLogger.showDateTime";
+  private static final String SIMPLE_LOGGER_DATE_TIME_FORMAT =
+      "org.slf4j.simpleLogger.dateTimeFormat";
+  private static final String SIMPLE_LOGGER_SHOW_THREAD_NAME =
+      "org.slf4j.simpleLogger.showThreadName";
+
   /**
    * Entry point for the ChangedClassTestDetectorCLI command-line tool.
    *
@@ -45,6 +54,7 @@ public class TestImpactCheckerCli {
    * analyze. (Required)
    * <li><b>-c &lt;configPath&gt;</b> : Path to the JSON configuration file.
    * (Required)
+   * <li><b>-d</b> or <b>--debug</b> : Enables debug logging with detailed diagnostics.
    * <li><b>-h</b> : Shows help and usage information.
    * </ul>
    *
@@ -71,20 +81,21 @@ public class TestImpactCheckerCli {
     boolean success = false;
     try {
       final CommandLine cmd = parser.parse(options, args);
+      configureLogging(cmd);
 
       if (cmd.hasOption("h")) {
         formatter.printHelp("ChangedClassTestDetectorCLI", options, true);
         return;
       }
 
-      log.info("Starting to determine impact");
+      log.info("Starting impact analysis");
       // project path
       final Path projectPath = Paths.get(cmd.getOptionValue("p"));
       if (!projectPath.toFile().exists()) {
         log.error("Project path does not exist");
         return;
       }
-      log.info("Project path is {}", projectPath.toAbsolutePath().normalize());
+      log.info("Validated project path {}", projectPath.toAbsolutePath().normalize());
 
       // config file
       final Path configPath = Paths.get(cmd.getOptionValue("c"));
@@ -96,11 +107,13 @@ public class TestImpactCheckerCli {
       final ObjectMapper mapper = new ObjectMapper();
       final ImpactCheckerConfig impactCheckerConfig = mapper.readValue(configPath.toFile(),
           ImpactCheckerConfig.class);
-      log.info("Config path is {}", configPath.toAbsolutePath().normalize());
+      log.info("Validated config path {}", configPath.toAbsolutePath().normalize());
 
       final TestImpactChecker testImpactChecker = new TestImpactChecker();
+      log.info("Running impact detection");
       final Map<Path, Set<String>> relevantTestsWithCauses = testImpactChecker.detectImpactWithCauses(
           projectPath.toAbsolutePath().normalize(), impactCheckerConfig);
+      log.info("Impact detection completed: {} impacted tests found", relevantTestsWithCauses.size());
 
       System.out.println();
       System.out.println("----------------- ----------------- -----------------");
@@ -132,11 +145,19 @@ public class TestImpactCheckerCli {
 
     System.out.println("----------------- ----------------- -----------------");
     System.out.println();
-    log.info("Finished determining impact {}", success ? "with success" : "with problems");
+    log.info("Finished impact analysis {}", success ? "with success" : "with problems");
   }
 
   private static Path toRelativePath(final Path projectPath, final Path path) {
     return projectPath.toAbsolutePath().normalize().relativize(path.toAbsolutePath().normalize());
+  }
+
+  private static void configureLogging(final CommandLine cmd) {
+    final String level = cmd.hasOption("d") ? "debug" : "info";
+    System.setProperty(SIMPLE_LOGGER_DEFAULT_LEVEL, level);
+    System.setProperty(SIMPLE_LOGGER_SHOW_DATE_TIME, "true");
+    System.setProperty(SIMPLE_LOGGER_DATE_TIME_FORMAT, "yyyy-MM-dd HH:mm:ss.SSS");
+    System.setProperty(SIMPLE_LOGGER_SHOW_THREAD_NAME, "false");
   }
 
   private static Options getOptions() {
@@ -144,6 +165,11 @@ public class TestImpactCheckerCli {
 
     // Help option
     options.addOption(Option.builder("h").longOpt("help").desc("Show Help").build());
+    options.addOption(
+        Option.builder("d")
+            .longOpt("debug")
+            .desc("Enable debug logging (detailed diagnostics)")
+            .build());
 
     // Path argument (required)
     options.addOption(
