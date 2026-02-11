@@ -6,7 +6,10 @@ import io.github.hillemacher.testimpactchecker.config.ImpactCheckerConfig;
 import java.io.IOException;
 import java.nio.file.Path;
 import java.nio.file.Paths;
+import java.util.Comparator;
+import java.util.Map;
 import java.util.Set;
+import java.util.stream.Collectors;
 import lombok.extern.slf4j.Slf4j;
 import org.apache.commons.cli.CommandLine;
 import org.apache.commons.cli.CommandLineParser;
@@ -96,22 +99,25 @@ public class TestImpactCheckerCli {
       log.info("Config path is {}", configPath.toAbsolutePath().normalize());
 
       final TestImpactChecker testImpactChecker = new TestImpactChecker();
-      final Set<Path> relevantTests = testImpactChecker.detectImpact(
+      final Map<Path, Set<String>> relevantTestsWithCauses = testImpactChecker.detectImpactWithCauses(
           projectPath.toAbsolutePath().normalize(), impactCheckerConfig);
 
       System.out.println();
       System.out.println("----------------- ----------------- -----------------");
-      System.out.println("Relevant tests referencing changed classes:");
-      if (relevantTests.isEmpty()) {
+      System.out.println("Relevant tests and impact causes:");
+      if (relevantTestsWithCauses.isEmpty()) {
         System.out.println("None found.");
       } else {
-        relevantTests.stream()
-            .map(
-                p -> projectPath
-                    .toAbsolutePath()
-                    .normalize()
-                    .relativize(p.toAbsolutePath().normalize()))
-            .forEach(System.out::println);
+        relevantTestsWithCauses.entrySet().stream()
+            .sorted(Comparator.comparing(entry -> toRelativePath(projectPath, entry.getKey()).toString()))
+            .forEach(entry -> {
+              final Path relativeTestPath = toRelativePath(projectPath, entry.getKey());
+              final String causes = entry.getValue().stream()
+                  .sorted()
+                  .collect(Collectors.joining(", "));
+              System.out.println(relativeTestPath);
+              System.out.println("  caused by: " + causes);
+            });
       }
       success = true;
     } catch (final MissingOptionException e) {
@@ -127,6 +133,10 @@ public class TestImpactCheckerCli {
     System.out.println("----------------- ----------------- -----------------");
     System.out.println();
     log.info("Finished determining impact {}", success ? "with success" : "with problems");
+  }
+
+  private static Path toRelativePath(final Path projectPath, final Path path) {
+    return projectPath.toAbsolutePath().normalize().relativize(path.toAbsolutePath().normalize());
   }
 
   private static Options getOptions() {

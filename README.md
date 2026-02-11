@@ -8,14 +8,14 @@
 - Scans your test sources to find tests annotated with configurable annotations (e.g., `@ContextConfiguration`).
 - Identifies tests that reference changed classes or their interfaces, excluding cases where changes are only used as mocks.
 - Supports both committed and uncommitted changes.
-- Outputs a list of impacted test files, making it easy to integrate with CI pipelines.
+- Outputs impacted test files together with the changed class causes, making it easy to integrate with CI pipelines.
 
 ## How It Works
 
 1. **Discover Source and Test Directories:** Recursively locates all `src/main/java` and `src/test/java` directories in your project.
 2. **Detect Changes:** Uses JGit to find changed Java files between two Git refs (branches, tags, or commits), as well as any uncommitted changes.
 3. **Analyze Test Coverage:** Parses test classes for relevant annotations and references to changed classes/interfaces, filtering out tests that only mock the changes.
-4. **Report Impact:** Outputs a list of relevant test files to run.
+4. **Report Impact:** Outputs relevant test files and the changed classes that caused each test to be included.
 
 ## Usage
 
@@ -31,7 +31,17 @@ Run the tool with the path to your project and the configuration JSON file as ar
 
 ### Example Output
 
-The tool prints a list of relevant test files referencing changed classes to standard output.
+The tool prints grouped output with impacted tests and their causes to standard output:
+
+```text
+----------------- ----------------- -----------------
+Relevant tests and impact causes:
+foo/src/test/java/TestA.java
+  caused by: A
+foo/src/test/java/TestB.java
+  caused by: B, C
+----------------- ----------------- -----------------
+```
 
 ## Configuration
 

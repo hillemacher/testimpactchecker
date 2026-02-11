@@ -24,7 +24,6 @@ import java.util.stream.Stream;
 import lombok.AllArgsConstructor;
 import lombok.extern.slf4j.Slf4j;
 import org.apache.commons.io.FileUtils;
-import org.apache.commons.io.FilenameUtils;
 import org.eclipse.jgit.diff.DiffEntry;
 
 /**
@@ -82,11 +81,32 @@ public class JavaImpactUtils {
       final Collection<Path> changedFilePaths,
       final Map<Path, Set<String>> implementedInterfaces,
       final Collection<Path> testDirPaths) {
-    final Set<Path> relevantTests = new HashSet<>();
+    return new HashSet<>(findRelevantTestsWithCauses(changedFilePaths, implementedInterfaces, testDirPaths).keySet());
+  }
+
+  /**
+   * Identifies relevant test files and the changed classes that caused each test to be included.
+   *
+   * @param changedFilePaths      a collection of paths to changed Java files
+   * @param implementedInterfaces a map from changed class paths to sets of implemented interface
+   *                              names
+   * @param testDirPaths          a collection of paths to directories containing test Java files
+   * @return a map where the key is an impacted test file path and the value is the set of changed
+   *         class names causing the impact
+   */
+  public Map<Path, Set<String>> findRelevantTestsWithCauses(
+      final Collection<Path> changedFilePaths,
+      final Map<Path, Set<String>> implementedInterfaces,
+      final Collection<Path> testDirPaths) {
+    final Map<Path, Set<String>> relevantTestsWithCauses = new HashMap<>();
 
     final Set<Path> allTestFiles = new HashSet<>();
     testDirPaths.forEach(testDirPath -> allTestFiles.addAll(getAllJavaFiles(testDirPath)));
-    final Set<String> allNames = buildChangedTypeNames(changedFilePaths, implementedInterfaces);
+    final Map<String, Set<String>> referencedTypeToChangedClasses =
+        buildReferencedTypeToChangedClasses(changedFilePaths, implementedInterfaces);
+    final Set<String> changedClassNames = changedFilePaths.stream()
+        .map(this::toSimpleClassName)
+        .collect(Collectors.toSet());
 
     for (final Path testFilePath : allTestFiles) {
       final CompilationUnit compilationUnit;
@@ -120,7 +140,7 @@ public class JavaImpactUtils {
         continue;
       }
 
-      final Set<String> referencedChangedClasses = new HashSet<>();
+      final Set<String> causesForTest = new HashSet<>();
       final Set<String> onlyMockedChangedClasses = new HashSet<>();
 
       compilationUnit
@@ -129,7 +149,7 @@ public class JavaImpactUtils {
               mce -> {
                 if ("mock".equals(mce.getNameAsString()) && mce.getArguments().size() == 1) {
                   final String arg = mce.getArgument(0).toString();
-                  allNames.forEach(
+                  changedClassNames.forEach(
                       className -> {
                         if (arg.contains(className + ".class")) {
                           onlyMockedChangedClasses.add(className);
@@ -143,22 +163,17 @@ public class JavaImpactUtils {
           .forEach(
               type -> {
                 final String typeName = type.getNameAsString();
-                allNames.forEach(
-                    className -> {
-                      if (typeName.equals(className)) {
-                        referencedChangedClasses.add(className);
-                      }
-                    });
+                causesForTest.addAll(referencedTypeToChangedClasses.getOrDefault(typeName, Set.of()));
               });
 
-      referencedChangedClasses.removeAll(onlyMockedChangedClasses);
+      causesForTest.removeAll(onlyMockedChangedClasses);
 
-      if (!referencedChangedClasses.isEmpty()) {
-        relevantTests.add(testFilePath);
+      if (!causesForTest.isEmpty()) {
+        relevantTestsWithCauses.put(testFilePath, causesForTest);
       }
     }
 
-    return relevantTests;
+    return relevantTestsWithCauses;
   }
 
   /**
@@ -306,20 +321,27 @@ public class JavaImpactUtils {
     }
   }
 
-  // Create list containing simple class name of changed class and the interfaces
-  // it implements.
-  // This can lead to false positives, but that's okay for now.
-  private Set<String> buildChangedTypeNames(
+  private Map<String, Set<String>> buildReferencedTypeToChangedClasses(
       final Collection<Path> changedFilePaths, final Map<Path, Set<String>> implementedInterfaces) {
-    final Set<String> allNames = new HashSet<>();
-    allNames.addAll(
-        changedFilePaths.stream()
-            .map(p -> FilenameUtils.getBaseName(p.toString()))
-            .collect(Collectors.toSet()));
-    allNames.addAll(
-        implementedInterfaces.values().stream()
-            .flatMap(Collection::stream)
-            .collect(Collectors.toSet()));
-    return allNames;
+    final Map<String, Set<String>> referencedTypeToChangedClasses = new HashMap<>();
+    changedFilePaths.forEach(
+        changedFilePath -> {
+          final String changedClassName = toSimpleClassName(changedFilePath);
+          referencedTypeToChangedClasses.computeIfAbsent(changedClassName, key -> new HashSet<>())
+              .add(changedClassName);
+          implementedInterfaces.getOrDefault(changedFilePath, Set.of()).forEach(
+              implementedInterface -> referencedTypeToChangedClasses.computeIfAbsent(
+                  implementedInterface, key -> new HashSet<>()).add(changedClassName));
+        });
+    return referencedTypeToChangedClasses;
+  }
+
+  private String toSimpleClassName(final Path path) {
+    final String fileName = path.getFileName().toString();
+    final int extensionIndex = fileName.lastIndexOf('.');
+    if (extensionIndex < 0) {
+      return fileName;
+    }
+    return fileName.substring(0, extensionIndex);
   }
 }

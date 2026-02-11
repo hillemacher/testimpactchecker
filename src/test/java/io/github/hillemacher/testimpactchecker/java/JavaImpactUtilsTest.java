@@ -121,6 +121,59 @@ class JavaImpactUtilsTest {
   }
 
   /**
+   * Confirms relevant tests include changed class causes.
+   */
+  @Test
+  void testFindRelevantTestsWithCauses() throws IOException {
+    final Path changedClassPath = Paths.get("foo", "baa", "src", "main", "java", "ClassJSF.java");
+    final Map<Path, Set<String>> implementedInterfaces =
+        Map.of(changedClassPath, Set.of("InterfaceJSF"));
+    final List<Path> testDirs =
+        List.of(Paths.get(testRepoRootPath.toString(), "foo", "src", "main", "test"));
+
+    final ImpactCheckerConfig impactCheckerTestConfig =
+        loadImpactCheckerConfig(this.testConfigPath);
+    final JavaImpactUtils javaImpactUtils =
+        new JavaImpactUtils(javaParser, impactCheckerTestConfig);
+
+    final Map<Path, Set<String>> relevantTestsWithCauses = javaImpactUtils.findRelevantTestsWithCauses(
+        List.of(changedClassPath), implementedInterfaces, testDirs);
+
+    assertThat(relevantTestsWithCauses).containsOnlyKeys(
+        Paths.get(testRepoRootPath.toString(), "foo", "src", "main", "test", "TestClassJSF.java"));
+    assertThat(relevantTestsWithCauses.values()).containsExactly(Set.of("ClassJSF"));
+  }
+
+  /**
+   * Ensures interface references report changed class names as causes.
+   */
+  @Test
+  void testFindRelevantTestsWithCausesForInterfaceReference() throws IOException {
+    final ImpactCheckerConfig impactCheckerTestConfig =
+        loadImpactCheckerConfig(this.testConfigPath);
+    final JavaImpactUtils javaImpactUtils =
+        new JavaImpactUtils(javaParser, impactCheckerTestConfig);
+
+    final Path changedClassPath = Paths.get("src", "main", "java", "ClassJSF.java");
+    final Path testDir = tempDir.resolve(Paths.get("module", "src", "test", "java"));
+    final Path testFile = testDir.resolve("InterfaceOnlyReferenceTest.java");
+
+    writeTestFile(testFile, """
+        import org.springframework.test.context.ContextConfiguration;
+        @ContextConfiguration
+        class InterfaceOnlyReferenceTest {
+                private InterfaceJSF service;
+        }
+        """);
+
+    final Map<Path, Set<String>> relevantTestsWithCauses = javaImpactUtils.findRelevantTestsWithCauses(
+        Set.of(changedClassPath), Map.of(changedClassPath, Set.of("InterfaceJSF")), List.of(testDir));
+
+    assertThat(relevantTestsWithCauses).containsOnlyKeys(testFile);
+    assertThat(relevantTestsWithCauses.get(testFile)).containsExactly("ClassJSF");
+  }
+
+  /**
    * Confirms tests without required annotations are ignored.
    */
   @Test

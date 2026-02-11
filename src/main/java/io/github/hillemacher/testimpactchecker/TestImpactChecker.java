@@ -9,6 +9,7 @@ import java.io.IOException;
 import java.nio.file.Files;
 import java.nio.file.Path;
 import java.util.HashSet;
+import java.util.Map;
 import java.util.Set;
 import java.util.stream.Collectors;
 import java.util.stream.Stream;
@@ -49,6 +50,20 @@ public class TestImpactChecker {
    */
   public Set<Path> detectImpact(final Path repositoryPath,
       final ImpactCheckerConfig impactCheckerConfig) throws IOException {
+    return new HashSet<>(detectImpactWithCauses(repositoryPath, impactCheckerConfig).keySet());
+  }
+
+  /**
+   * Detects impacted tests and returns each impacted test with the changed classes that caused it.
+   *
+   * @param repositoryPath the root path of the repository to scan
+   * @param impactCheckerConfig configuration for annotations and git refs
+   * @return a map where the key is an impacted test path and the value is the set of changed class
+   *         names causing the impact
+   * @throws IOException if file system operations fail while scanning source directories
+   */
+  public Map<Path, Set<String>> detectImpactWithCauses(final Path repositoryPath,
+      final ImpactCheckerConfig impactCheckerConfig) throws IOException {
     final JavaImpactUtils javaImpactUtils = createJavaImpactUtils(impactCheckerConfig);
 
     // 1. Find all src/main/java directories in project (recursively)
@@ -60,12 +75,12 @@ public class TestImpactChecker {
         javaImpactUtils.findChangedClassPaths(mainJavaDirs, repositoryPath);
 
     if (changedClassPath == null) {
-      return Set.of();
+      return Map.of();
     }
 
     if (changedClassPath.isEmpty()) {
       log.info("No changed classes detected.");
-      return Set.of();
+      return Map.of();
     }
 
     log.debug("Changed classes: {}",
@@ -73,7 +88,7 @@ public class TestImpactChecker {
 
     // 3. Scan all test classes for @ContextConfiguration and references to changed
     // classes
-    return javaImpactUtils.findRelevantTests(changedClassPath,
+    return javaImpactUtils.findRelevantTestsWithCauses(changedClassPath,
         javaImpactUtils.findImplementedInterfaces(changedClassPath, repositoryPath), testJavaDirs);
   }
 
