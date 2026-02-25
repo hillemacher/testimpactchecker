@@ -4,6 +4,7 @@ import com.github.javaparser.JavaParser;
 import com.github.javaparser.ParserConfiguration;
 import io.github.hillemacher.testimpactchecker.config.ImpactCheckerConfig;
 import io.github.hillemacher.testimpactchecker.java.JavaImpactUtils;
+import io.github.hillemacher.testimpactchecker.java.analysis.ImpactAnalysisEngine;
 import java.io.File;
 import java.io.IOException;
 import java.nio.file.Files;
@@ -11,7 +12,6 @@ import java.nio.file.Path;
 import java.util.HashSet;
 import java.util.Map;
 import java.util.Set;
-import java.util.stream.Collectors;
 import java.util.stream.Stream;
 import lombok.extern.slf4j.Slf4j;
 
@@ -45,8 +45,10 @@ public class TestImpactChecker {
    * The result is a set of paths to test files that are potentially affected by the changes.
    *
    * @param repositoryPath the root path of the repository to scan
+   * @param impactCheckerConfig configuration for annotations, git refs, and analysis mode
    * @return a set of paths to impacted test files; returns an empty set if no changed classes are
    *         detected
+   * @throws IOException if file system operations fail while scanning source directories
    */
   public Set<Path> detectImpact(final Path repositoryPath,
       final ImpactCheckerConfig impactCheckerConfig) throws IOException {
@@ -75,33 +77,9 @@ public class TestImpactChecker {
     log.debug("Main Java source directories: {}", mainJavaDirs);
     log.debug("Test Java source directories: {}", testJavaDirs);
 
-    // 2. Get changed Java classes under all src/main/java dirs
-    final Set<Path> changedClassPath =
-        javaImpactUtils.findChangedClassPaths(mainJavaDirs, repositoryPath);
-
-    if (changedClassPath == null) {
-      log.error("Unable to determine changed classes.");
-      return Map.of();
-    }
-
-    if (changedClassPath.isEmpty()) {
-      log.info("No changed classes detected.");
-      return Map.of();
-    }
-
-    log.info("Detected {} changed classes", changedClassPath.size());
-    log.debug("Changed classes: {}", changedClassPath.stream().map(Path::toString)
-        .collect(Collectors.joining(", ")));
-
-    // 3. Scan all test classes for @ContextConfiguration and references to changed
-    // classes
-    final Map<Path, Set<String>> implementedInterfaces =
-        javaImpactUtils.findImplementedInterfaces(changedClassPath, repositoryPath);
-    log.info("Resolved implemented interfaces for {} changed classes", implementedInterfaces.size());
-    log.debug("Implemented interfaces by changed class: {}", implementedInterfaces);
-
-    final Map<Path, Set<String>> relevantTestsWithCauses = javaImpactUtils.findRelevantTestsWithCauses(
-        changedClassPath, implementedInterfaces, testJavaDirs);
+    final ImpactAnalysisEngine impactAnalysisEngine = javaImpactUtils.createEngine();
+    final Map<Path, Set<String>> relevantTestsWithCauses = impactAnalysisEngine.analyzeImpactWithCauses(
+        repositoryPath, mainJavaDirs, testJavaDirs);
     log.info("Detected {} impacted tests", relevantTestsWithCauses.size());
     log.debug("Impacted tests with causes: {}", relevantTestsWithCauses);
     return relevantTestsWithCauses;
