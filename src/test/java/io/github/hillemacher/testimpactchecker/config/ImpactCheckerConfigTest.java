@@ -3,6 +3,8 @@ package io.github.hillemacher.testimpactchecker.config;
 import static org.assertj.core.api.Assertions.assertThat;
 
 import com.fasterxml.jackson.databind.ObjectMapper;
+import io.github.hillemacher.testimpactchecker.config.AnalysisMode;
+import io.github.hillemacher.testimpactchecker.config.MockPolicy;
 import java.io.IOException;
 import java.nio.file.Path;
 import java.nio.file.Paths;
@@ -29,5 +31,8 @@ class ImpactCheckerConfigTest {
         .containsOnly("ContextConfiguration", "MyCustomAnnotation");
     assertThat(impactCheckerConfig.getBaseRef()).isEqualTo("develop");
     assertThat(impactCheckerConfig.getTargetRef()).isEqualTo("HEAD");
+    assertThat(impactCheckerConfig.getAnalysisMode()).isEqualTo(AnalysisMode.DIRECT);
+    assertThat(impactCheckerConfig.getMaxPropagationDepth()).isEqualTo(2);
+    assertThat(impactCheckerConfig.getMockPolicy()).isEqualTo(MockPolicy.CURRENT);
   }
 }

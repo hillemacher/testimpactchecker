@@ -51,6 +51,9 @@ The tool expects a JSON configuration file with the following fields:
 - **annotations**: List of annotation names (without @) used to identify relevant test classes.
 - **baseRef**: The base Git reference for comparison (e.g., `refs/heads/main`).
 - **targetRef**: The target Git reference for comparison (e.g., `HEAD`).
+- **analysisMode**: `DIRECT` (default) or `TRANSITIVE`.
+- **maxPropagationDepth**: Max reverse dependency traversal depth for `TRANSITIVE` mode. Defaults to `2`.
+- **mockPolicy**: `CURRENT` (default) or `FILTER_MOCKED_PATHS`.
 
 ### Compare a Specific Commit with a Target
 
@@ -62,9 +65,22 @@ and `targetRef` to the desired branch, tag, or commit. For example, to compare c
 {
   "annotations": ["ContextConfiguration"],
   "baseRef": "abc1234",
-  "targetRef": "refs/heads/main"
+  "targetRef": "refs/heads/main",
+  "analysisMode": "TRANSITIVE",
+  "maxPropagationDepth": 2,
+  "mockPolicy": "FILTER_MOCKED_PATHS"
 }
 ```
+
+### Analysis Modes
+
+- `DIRECT` (default): Matches tests that directly reference changed classes or interfaces implemented by changed classes.
+- `TRANSITIVE`: Builds a reverse dependency graph from `src/main/java` and propagates impact to dependents up to `maxPropagationDepth`.
+
+### Mock Policies
+
+- `CURRENT` (default): Excludes a cause when a changed class itself is mocked.
+- `FILTER_MOCKED_PATHS`: In transitive analysis, excludes a cause only when all witness paths from referenced impacted type back to the changed seed are blocked by mocked types.
 
 ## Requirements
 
