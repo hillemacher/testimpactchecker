@@ -34,5 +34,6 @@ class ImpactCheckerConfigTest {
     assertThat(impactCheckerConfig.getAnalysisMode()).isEqualTo(AnalysisMode.DIRECT);
     assertThat(impactCheckerConfig.getMaxPropagationDepth()).isEqualTo(2);
     assertThat(impactCheckerConfig.getMockPolicy()).isEqualTo(MockPolicy.CURRENT);
+    assertThat(impactCheckerConfig.getHtmlReportOutputPath()).isEqualTo("reports/from-config");
   }
 }

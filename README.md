@@ -27,6 +27,7 @@ Run the tool with the path to your project and the configuration JSON file as ar
 
 - `-p <projectPath>` or `--project <projectPath>`: Path to the root of the project to analyze. **(Required)**
 - `-c <configPath>` or `--config <configPath>`: Path to the JSON configuration file. **(Required)**
+- `--html-report <path-or-directory>`: Optional output path for a static HTML report. If a directory is provided, the report file name defaults to `impact-report.html`. This overrides the config value `htmlReportOutputPath` when both are set.
 - `-d` or `--debug`: Enable debug logging with detailed diagnostics. *(Optional)*
 - `-h` or `--help`: Show help and usage information.
 
@@ -44,6 +45,24 @@ foo/src/test/java/TestB.java
 ----------------- ----------------- -----------------
 ```
 
+### Report Output
+
+When `--html-report` is set, the checker additionally writes a static HTML artifact that contains:
+
+- Summary cards (impacted tests, unique causes, average causes per test)
+- Impacted tests and their causes
+- Top causes sorted by impacted test count
+
+Path behavior:
+
+- If the value ends with `.html`, it is treated as an output file path.
+- Otherwise, it is treated as a directory and `impact-report.html` is appended.
+- Relative paths are resolved from the provided project root (`--project`), not from the config file location.
+
+CI recommendation:
+
+- Use `${project}/reports/impact-report.html` as your artifact path.
+
 ## Configuration
 
 The tool expects a JSON configuration file with the following fields:
@@ -54,6 +73,7 @@ The tool expects a JSON configuration file with the following fields:
 - **analysisMode**: `DIRECT` (default) or `TRANSITIVE`.
 - **maxPropagationDepth**: Max reverse dependency traversal depth for `TRANSITIVE` mode. Defaults to `2`.
 - **mockPolicy**: `CURRENT` (default) or `FILTER_MOCKED_PATHS`.
+- **htmlReportOutputPath** *(optional)*: Path or directory for HTML report output when `--html-report` is not supplied. Relative values are resolved from `--project`.
 
 ### Compare a Specific Commit with a Target
 
@@ -68,7 +88,8 @@ and `targetRef` to the desired branch, tag, or commit. For example, to compare c
   "targetRef": "refs/heads/main",
   "analysisMode": "TRANSITIVE",
   "maxPropagationDepth": 2,
-  "mockPolicy": "FILTER_MOCKED_PATHS"
+  "mockPolicy": "FILTER_MOCKED_PATHS",
+  "htmlReportOutputPath": "reports/impact-report.html"
 }
 ```
 

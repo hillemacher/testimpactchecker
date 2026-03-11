@@ -3,11 +3,16 @@ package io.github.hillemacher.testimpactchecker.cli;
 import com.fasterxml.jackson.databind.ObjectMapper;
 import io.github.hillemacher.testimpactchecker.TestImpactChecker;
 import io.github.hillemacher.testimpactchecker.config.ImpactCheckerConfig;
+import io.github.hillemacher.testimpactchecker.report.HtmlImpactReportRenderer;
+import io.github.hillemacher.testimpactchecker.report.ImpactReport;
+import io.github.hillemacher.testimpactchecker.report.ImpactReportMapper;
+import io.github.hillemacher.testimpactchecker.report.ImpactReportWriter;
 import java.io.IOException;
 import java.nio.file.Path;
 import java.nio.file.Paths;
 import java.util.Comparator;
 import java.util.Map;
+import java.util.Optional;
 import java.util.Set;
 import java.util.stream.Collectors;
 import lombok.extern.slf4j.Slf4j;
@@ -54,6 +59,9 @@ public class TestImpactCheckerCli {
    * analyze. (Required)
    * <li><b>-c &lt;configPath&gt;</b> : Path to the JSON configuration file.
    * (Required)
+   * <li><b>--html-report &lt;path-or-directory&gt;</b> : Optional path for a static HTML impact
+   * report. If a directory is given, {@code impact-report.html} is used. This overrides the
+   * optional config field {@code htmlReportOutputPath}.
    * <li><b>-d</b> or <b>--debug</b> : Enables debug logging with detailed diagnostics.
    * <li><b>-h</b> : Shows help and usage information.
    * </ul>
@@ -115,6 +123,14 @@ public class TestImpactCheckerCli {
           projectPath.toAbsolutePath().normalize(), impactCheckerConfig);
       log.info("Impact detection completed: {} impacted tests found", relevantTestsWithCauses.size());
 
+      boolean htmlReportWrittenSuccessfully = true;
+      final Optional<String> configuredHtmlReportOutputPath =
+          resolveHtmlReportOutputPath(cmd, impactCheckerConfig);
+      if (configuredHtmlReportOutputPath.isPresent()) {
+        htmlReportWrittenSuccessfully = writeHtmlReport(projectPath, configuredHtmlReportOutputPath.get(),
+            relevantTestsWithCauses);
+      }
+
       System.out.println();
       System.out.println("----------------- ----------------- -----------------");
       System.out.println("Relevant tests and impact causes:");
@@ -132,7 +148,7 @@ public class TestImpactCheckerCli {
               System.out.println("  caused by: " + causes);
             });
       }
-      success = true;
+      success = htmlReportWrittenSuccessfully;
     } catch (final MissingOptionException e) {
       log.error("Missing required option", e);
       formatter.printHelp("ChangedClassTestDetectorCLI", options, true);
@@ -146,6 +162,41 @@ public class TestImpactCheckerCli {
     System.out.println("----------------- ----------------- -----------------");
     System.out.println();
     log.info("Finished impact analysis {}", success ? "with success" : "with problems");
+  }
+
+  private static Optional<String> resolveHtmlReportOutputPath(
+      final CommandLine cmd,
+      final ImpactCheckerConfig impactCheckerConfig) {
+    if (cmd.hasOption("html-report")) {
+      return Optional.of(cmd.getOptionValue("html-report"));
+    }
+
+    if (impactCheckerConfig.getHtmlReportOutputPath() == null
+        || impactCheckerConfig.getHtmlReportOutputPath().isBlank()) {
+      return Optional.empty();
+    }
+    return Optional.of(impactCheckerConfig.getHtmlReportOutputPath());
+  }
+
+  private static boolean writeHtmlReport(
+      final Path projectPath,
+      final String configuredOutputPath,
+      final Map<Path, Set<String>> relevantTestsWithCauses) {
+    final ImpactReportMapper mapper = new ImpactReportMapper();
+    final HtmlImpactReportRenderer renderer = new HtmlImpactReportRenderer();
+    final ImpactReportWriter writer = new ImpactReportWriter();
+
+    final ImpactReport report = mapper.toImpactReport(projectPath, relevantTestsWithCauses);
+    final String htmlContent = renderer.render(report);
+    final Path outputPath = writer.resolveOutputPath(projectPath, configuredOutputPath);
+    try {
+      writer.writeReport(outputPath, htmlContent);
+      log.info("Wrote HTML impact report to {}", outputPath.toAbsolutePath().normalize());
+      return true;
+    } catch (final IOException e) {
+      log.error("Failed to write HTML impact report to {}", outputPath.toAbsolutePath().normalize(), e);
+      return false;
+    }
   }
 
   private static Path toRelativePath(final Path projectPath, final Path path) {
@@ -169,6 +220,13 @@ public class TestImpactCheckerCli {
         Option.builder("d")
             .longOpt("debug")
             .desc("Enable debug logging (detailed diagnostics)")
+            .build());
+    options.addOption(
+        Option.builder()
+            .longOpt("html-report")
+            .hasArg()
+            .argName("path-or-directory")
+            .desc("Optional output path for static HTML report; directories use impact-report.html")
             .build());
 
     // Path argument (required)

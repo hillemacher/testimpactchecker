@@ -4,5 +4,6 @@
     "MyCustomAnnotation"
   ],
   "baseRef": "develop",
-  "targetRef": "HEAD"
+  "targetRef": "HEAD",
+  "htmlReportOutputPath": "reports/from-config"
 }
