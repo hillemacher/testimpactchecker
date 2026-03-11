@@ -4,7 +4,7 @@ import java.io.IOException;
 import java.nio.charset.StandardCharsets;
 import java.nio.file.Files;
 import java.nio.file.Path;
-import java.util.Objects;
+import lombok.NonNull;
 
 /**
  * Resolves report output locations and writes static report files.
@@ -24,10 +24,9 @@ public class ImpactReportWriter {
    * @return absolute file path where the HTML report should be written
    * @throws NullPointerException if any parameter is {@code null}
    */
-  public Path resolveOutputPath(final Path projectPath, final String configuredOutputPath) {
-    Objects.requireNonNull(projectPath, "projectPath must not be null");
-    Objects.requireNonNull(configuredOutputPath, "configuredOutputPath must not be null");
-
+  public Path resolveOutputPath(
+      @NonNull final Path projectPath,
+      @NonNull final String configuredOutputPath) {
     final Path configuredPath = Path.of(configuredOutputPath.trim());
     final Path absolutePath = configuredPath.isAbsolute()
         ? configuredPath
@@ -48,10 +47,8 @@ public class ImpactReportWriter {
    * @throws IOException if directory creation or file writing fails
    * @throws NullPointerException if any parameter is {@code null}
    */
-  public void writeReport(final Path outputPath, final String htmlContent) throws IOException {
-    Objects.requireNonNull(outputPath, "outputPath must not be null");
-    Objects.requireNonNull(htmlContent, "htmlContent must not be null");
-
+  public void writeReport(@NonNull final Path outputPath, @NonNull final String htmlContent)
+      throws IOException {
     final Path parent = outputPath.getParent();
     if (parent != null) {
       Files.createDirectories(parent);

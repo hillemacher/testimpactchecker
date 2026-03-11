@@ -7,8 +7,8 @@ import java.util.ArrayList;
 import java.util.Comparator;
 import java.util.List;
 import java.util.Map;
-import java.util.Objects;
 import java.util.Set;
+import lombok.NonNull;
 
 /**
  * Maps raw impact detection output into a deterministic report model.
@@ -24,8 +24,8 @@ public class ImpactReportMapper {
     this(Clock.systemUTC());
   }
 
-  ImpactReportMapper(final Clock clock) {
-    this.clock = Objects.requireNonNull(clock, "clock must not be null");
+  ImpactReportMapper(@NonNull final Clock clock) {
+    this.clock = clock;
   }
 
   /**
@@ -37,10 +37,8 @@ public class ImpactReportMapper {
    * @throws NullPointerException if any parameter is {@code null}
    */
   public ImpactReport toImpactReport(
-      final Path projectPath,
-      final Map<Path, Set<String>> relevantTestsWithCauses) {
-    Objects.requireNonNull(projectPath, "projectPath must not be null");
-    Objects.requireNonNull(relevantTestsWithCauses, "relevantTestsWithCauses must not be null");
+      @NonNull final Path projectPath,
+      @NonNull final Map<Path, Set<String>> relevantTestsWithCauses) {
 
     final Path normalizedProjectPath = projectPath.toAbsolutePath().normalize();
     final Instant generatedAt = clock.instant();

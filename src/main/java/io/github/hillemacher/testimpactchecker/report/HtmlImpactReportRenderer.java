@@ -3,7 +3,7 @@ package io.github.hillemacher.testimpactchecker.report;
 import java.time.ZoneOffset;
 import java.time.format.DateTimeFormatter;
 import java.util.Locale;
-import java.util.Objects;
+import lombok.NonNull;
 
 /**
  * Renders an {@link ImpactReport} as a static dependency-free HTML page.
@@ -22,9 +22,7 @@ public class HtmlImpactReportRenderer {
    * @return complete HTML document string
    * @throws NullPointerException if {@code report} is {@code null}
    */
-  public String render(final ImpactReport report) {
-    Objects.requireNonNull(report, "report must not be null");
-
+  public String render(@NonNull final ImpactReport report) {
     final StringBuilder html = new StringBuilder();
     html.append("<!DOCTYPE html>\n");
     html.append("<html lang=\"en\">\n");
