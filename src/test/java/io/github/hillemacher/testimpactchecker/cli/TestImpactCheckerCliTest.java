@@ -24,6 +24,9 @@ import org.junit.jupiter.api.io.TempDir;
 import org.mockito.MockedConstruction;
 import org.mockito.Mockito;
 
+/**
+ * Tests CLI argument handling, console output stability, and HTML report output behavior.
+ */
 class TestImpactCheckerCliTest {
 
   private static final String SIMPLE_LOGGER_DEFAULT_LEVEL =
@@ -60,6 +63,9 @@ class TestImpactCheckerCliTest {
     originalSystemProperties.clear();
   }
 
+  /**
+   * Verifies impacted tests are printed grouped by test path and sorted deterministically.
+   */
   @Test
   void testMainPrintsGroupedImpactCauses() throws IOException {
     final Path projectPath = tempDir.resolve("project-default");
@@ -77,6 +83,9 @@ class TestImpactCheckerCliTest {
     assertThat(indexA).isLessThan(indexB);
   }
 
+  /**
+   * Ensures default execution configures INFO-level simple logger properties.
+   */
   @Test
   void testMainSetsInfoLogLevelByDefault() throws IOException {
     final Path projectPath = tempDir.resolve("project-info");
@@ -92,6 +101,9 @@ class TestImpactCheckerCliTest {
     assertThat(System.getProperty(SIMPLE_LOGGER_SHOW_THREAD_NAME)).isEqualTo("false");
   }
 
+  /**
+   * Ensures the debug flag switches logging configuration to DEBUG level.
+   */
   @Test
   void testMainSetsDebugLogLevelWhenDebugFlagPresent() throws IOException {
     final Path projectPath = tempDir.resolve("project-debug");
@@ -103,6 +115,9 @@ class TestImpactCheckerCliTest {
     assertThat(System.getProperty(SIMPLE_LOGGER_DEFAULT_LEVEL)).isEqualTo("debug");
   }
 
+  /**
+   * Verifies enabling debug logging does not change the structured stdout report content.
+   */
   @Test
   void testMainDebugFlagKeepsReportOutputStable() throws IOException {
     final Path projectPath = tempDir.resolve("project-stable");
@@ -114,6 +129,92 @@ class TestImpactCheckerCliTest {
         new String[] {"-p", projectPath.toString(), "-c", configPath.toString(), "--debug"});
 
     assertThat(debugOutput).isEqualTo(defaultOutput);
+  }
+
+  /**
+   * Confirms HTML output is written to an explicit file path passed via CLI.
+   */
+  @Test
+  void testMainWritesHtmlReportToExplicitFilePath() throws IOException {
+    final Path projectPath = tempDir.resolve("project-html-file");
+    final Path configPath = writeConfig(projectPath);
+    final Path htmlPath = projectPath.resolve("reports/custom-report.html");
+
+    executeCliAndCaptureStdout(projectPath,
+        new String[] {"-p", projectPath.toString(), "-c", configPath.toString(), "--html-report",
+            "reports/custom-report.html"});
+
+    assertThat(htmlPath).exists();
+    final String html = Files.readString(htmlPath, StandardCharsets.UTF_8);
+    assertThat(html).contains("Test Impact Report");
+    assertThat(html).contains("Impacted tests and causes");
+    assertThat(html).contains("module/src/test/java/a/TestA.java");
+  }
+
+  /**
+   * Confirms directory targets resolve to the default report file name.
+   */
+  @Test
+  void testMainWritesHtmlReportToDirectoryPathWithDefaultFileName() throws IOException {
+    final Path projectPath = tempDir.resolve("project-html-dir");
+    final Path configPath = writeConfig(projectPath);
+    final Path htmlPath = projectPath.resolve("reports/impact-report.html");
+
+    executeCliAndCaptureStdout(projectPath,
+        new String[] {"-p", projectPath.toString(), "-c", configPath.toString(), "--html-report",
+            "reports"});
+
+    assertThat(htmlPath).exists();
+  }
+
+  /**
+   * Verifies adding HTML output does not alter the existing stdout report format.
+   */
+  @Test
+  void testMainHtmlFlagKeepsConsoleReportStable() throws IOException {
+    final Path projectPath = tempDir.resolve("project-html-stable");
+    final Path configPath = writeConfig(projectPath);
+
+    final String defaultOutput = executeCliAndCaptureStdout(projectPath,
+        new String[] {"-p", projectPath.toString(), "-c", configPath.toString()});
+    final String htmlOutput = executeCliAndCaptureStdout(projectPath,
+        new String[] {"-p", projectPath.toString(), "-c", configPath.toString(), "--html-report",
+            "reports"});
+
+    assertThat(htmlOutput).isEqualTo(defaultOutput);
+  }
+
+  /**
+   * Verifies HTML output is produced from config when the CLI report flag is absent.
+   */
+  @Test
+  void testMainWritesHtmlReportFromConfigWhenCliFlagIsMissing() throws IOException {
+    final Path projectPath = tempDir.resolve("project-config-html");
+    final Path configPath = writeConfig(projectPath, "reports/from-config");
+    final Path htmlPath = projectPath.resolve("reports/from-config/impact-report.html");
+
+    executeCliAndCaptureStdout(projectPath,
+        new String[] {"-p", projectPath.toString(), "-c", configPath.toString()});
+
+    assertThat(htmlPath).exists();
+  }
+
+  /**
+   * Ensures CLI report path overrides the optional report path configured in JSON.
+   */
+  @Test
+  void testMainCliHtmlFlagOverridesConfigHtmlPath() throws IOException {
+    final Path projectPath = tempDir.resolve("project-config-override");
+    final Path configPath = writeConfig(projectPath, "reports/from-config");
+    final Path configHtmlPath = projectPath.resolve("reports/from-config/impact-report.html");
+    final Path cliHtmlPath = projectPath.resolve("reports/from-cli/impact-report.html");
+
+    executeCliAndCaptureStdout(projectPath,
+        new String[] {"-p", projectPath.toString(), "-c", configPath.toString(), "--html-report",
+            "reports/from-cli"});
+
+    assertThat(cliHtmlPath).exists();
+    assertThat(configHtmlPath).doesNotExist();
   }
 
   private String executeCliAndCaptureStdout(final Path projectPath, final String[] args) {
@@ -140,15 +241,22 @@ class TestImpactCheckerCliTest {
   }
 
   private Path writeConfig(final Path projectPath) throws IOException {
+    return writeConfig(projectPath, null);
+  }
+
+  private Path writeConfig(final Path projectPath, final String htmlReportOutputPath)
+      throws IOException {
     Files.createDirectories(projectPath);
     final Path configPath = tempDir.resolve(projectPath.getFileName() + "-config.json");
+    final String optionalHtmlPath = htmlReportOutputPath == null ? "" :
+        ",\n  \"htmlReportOutputPath\": \"" + htmlReportOutputPath + "\"";
     Files.writeString(configPath, """
         {
           "annotations": ["ContextConfiguration"],
           "baseRef": "develop",
-          "targetRef": "HEAD"
+          "targetRef": "HEAD"%s
         }
-        """, StandardCharsets.UTF_8);
+        """.formatted(optionalHtmlPath), StandardCharsets.UTF_8);
     return configPath;
   }
 

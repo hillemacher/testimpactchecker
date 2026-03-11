@@ -5,7 +5,8 @@ import lombok.Getter;
 import lombok.Setter;
 
 /**
- * Configuration for defining annotations and Git refs used by impact detection.
+ * Configuration for defining annotations, Git refs, and optional report output settings used by
+ * impact detection.
  */
 @Getter
 @Setter
@@ -57,4 +58,12 @@ public class ImpactCheckerConfig {
   public MockPolicy getMockPolicy() {
     return mockPolicy == null ? MockPolicy.CURRENT : mockPolicy;
   }
+
+  /**
+   * Optional path or directory for static HTML report output.
+   *
+   * <p>When set and {@code --html-report} is not passed on the command line, this value is used as
+   * the report target.
+   */
+  private String htmlReportOutputPath;
 }
