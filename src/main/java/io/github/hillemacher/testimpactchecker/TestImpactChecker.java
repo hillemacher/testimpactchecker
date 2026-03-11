@@ -45,7 +45,7 @@ public class TestImpactChecker {
    * The result is a set of paths to test files that are potentially affected by the changes.
    *
    * @param repositoryPath the root path of the repository to scan
-   * @param impactCheckerConfig configuration for annotations, git refs, and analysis mode
+   * @param impactCheckerConfig configuration defining annotations, Git refs, and analysis controls
    * @return a set of paths to impacted test files; returns an empty set if no changed classes are
    *         detected
    * @throws IOException if file system operations fail while scanning source directories
