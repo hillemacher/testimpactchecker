@@ -9,6 +9,7 @@ import java.util.List;
 import java.util.Set;
 import lombok.AccessLevel;
 import lombok.NoArgsConstructor;
+import lombok.NonNull;
 import lombok.extern.slf4j.Slf4j;
 import org.eclipse.jgit.api.Git;
 import org.eclipse.jgit.api.errors.GitAPIException;
@@ -51,7 +52,9 @@ public class GitImpactUtils {
    * @return a {@link AbstractTreeIterator} positioned at the root of the tree for the given ref
    * @throws IOException if an error occurs while accessing the repository or resolving the ref
    */
-  public static AbstractTreeIterator getTreeIterator(Repository repository, String ref)
+  public static AbstractTreeIterator getTreeIterator(
+      @NonNull final Repository repository,
+      @NonNull final String ref)
       throws IOException {
     log.debug("Create tree iterator for {}", ref);
 
@@ -93,7 +96,9 @@ public class GitImpactUtils {
    *         both committed and uncommitted changes; returns an empty list if the repository cannot
    *         be accessed or an error occurs
    */
-  public static List<DiffEntry> getDiffEntries(Path gitRepoPath, ImpactCheckerConfig config) {
+  public static List<DiffEntry> getDiffEntries(
+      @NonNull final Path gitRepoPath,
+      @NonNull final ImpactCheckerConfig config) {
     log.debug("gitRepoPath: {}", gitRepoPath);
     try (final Git git = Git.open(gitRepoPath.toFile())) {
       log.debug("Running git diff for base-ref {} and target-ref {}", config.getBaseRef(),

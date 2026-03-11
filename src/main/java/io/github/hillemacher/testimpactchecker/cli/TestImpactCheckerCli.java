@@ -15,6 +15,7 @@ import java.util.Map;
 import java.util.Optional;
 import java.util.Set;
 import java.util.stream.Collectors;
+import lombok.NonNull;
 import lombok.extern.slf4j.Slf4j;
 import org.apache.commons.cli.CommandLine;
 import org.apache.commons.cli.CommandLineParser;
@@ -165,8 +166,8 @@ public class TestImpactCheckerCli {
   }
 
   private static Optional<String> resolveHtmlReportOutputPath(
-      final CommandLine cmd,
-      final ImpactCheckerConfig impactCheckerConfig) {
+      @NonNull final CommandLine cmd,
+      @NonNull final ImpactCheckerConfig impactCheckerConfig) {
     if (cmd.hasOption("html-report")) {
       return Optional.of(cmd.getOptionValue("html-report"));
     }
@@ -179,9 +180,9 @@ public class TestImpactCheckerCli {
   }
 
   private static boolean writeHtmlReport(
-      final Path projectPath,
-      final String configuredOutputPath,
-      final Map<Path, Set<String>> relevantTestsWithCauses) {
+      @NonNull final Path projectPath,
+      @NonNull final String configuredOutputPath,
+      @NonNull final Map<Path, Set<String>> relevantTestsWithCauses) {
     final ImpactReportMapper mapper = new ImpactReportMapper();
     final HtmlImpactReportRenderer renderer = new HtmlImpactReportRenderer();
     final ImpactReportWriter writer = new ImpactReportWriter();
