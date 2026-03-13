@@ -1,6 +1,6 @@
 package io.github.hillemacher.testimpactchecker.report;
 
-import java.util.Objects;
+import lombok.NonNull;
 
 /**
  * One aggregated impact cause and the number of impacted tests it contributes to.
@@ -8,7 +8,7 @@ import java.util.Objects;
  * @param cause changed class name (or other cause token) included in the summary
  * @param impactedTestCount number of impacted tests associated with the cause
  */
-public record CauseSummaryEntry(String cause, int impactedTestCount) {
+public record CauseSummaryEntry(@NonNull String cause, int impactedTestCount) {
 
   /**
    * Validates the summary entry values.
@@ -19,7 +19,6 @@ public record CauseSummaryEntry(String cause, int impactedTestCount) {
    * @throws IllegalArgumentException if {@code impactedTestCount} is negative
    */
   public CauseSummaryEntry {
-    Objects.requireNonNull(cause, "cause must not be null");
     if (impactedTestCount < 0) {
       throw new IllegalArgumentException("impactedTestCount must be >= 0");
     }
