@@ -11,6 +11,7 @@ import io.github.hillemacher.testimpactchecker.report.ImpactReportWriter;
 import java.io.IOException;
 import java.nio.file.Path;
 import java.nio.file.Paths;
+import java.time.ZoneId;
 import java.util.Comparator;
 import java.util.Map;
 import java.util.Optional;
@@ -113,11 +114,12 @@ public class TestImpactCheckerCli {
         log.error("Config path does not exist");
         return;
       }
+      final Path normalizedConfigPath = configPath.toAbsolutePath().normalize();
 
       final ObjectMapper mapper = new ObjectMapper();
       final ImpactCheckerConfig impactCheckerConfig = mapper.readValue(configPath.toFile(),
           ImpactCheckerConfig.class);
-      log.info("Validated config path {}", configPath.toAbsolutePath().normalize());
+      log.info("Validated config path {}", normalizedConfigPath);
 
       final TestImpactChecker testImpactChecker = new TestImpactChecker();
       log.info("Running impact detection");
@@ -130,7 +132,11 @@ public class TestImpactCheckerCli {
       final Optional<String> configuredHtmlReportOutputPath =
           resolveHtmlReportOutputPath(cmd, impactCheckerConfig);
       if (configuredHtmlReportOutputPath.isPresent()) {
-        htmlReportWrittenSuccessfully = writeHtmlReport(projectPath, configuredHtmlReportOutputPath.get(),
+        htmlReportWrittenSuccessfully = writeHtmlReport(
+            projectPath,
+            normalizedConfigPath,
+            impactCheckerConfig,
+            configuredHtmlReportOutputPath.get(),
             impactDetectionReportData);
       }
 
@@ -183,6 +189,8 @@ public class TestImpactCheckerCli {
 
   private static boolean writeHtmlReport(
       @NonNull final Path projectPath,
+      @NonNull final Path configPath,
+      @NonNull final ImpactCheckerConfig impactCheckerConfig,
       @NonNull final String configuredOutputPath,
       @NonNull final ImpactDetectionReportData impactDetectionReportData) {
     final ImpactReportMapper mapper = new ImpactReportMapper();
@@ -191,6 +199,9 @@ public class TestImpactCheckerCli {
 
     final ImpactReport report = mapper.toImpactReport(
         projectPath,
+        configPath,
+        impactCheckerConfig,
+        ZoneId.systemDefault(),
         impactDetectionReportData.relevantTestsWithCauses(),
         impactDetectionReportData.impactedTypeToCauses());
     final String htmlContent = renderer.render(report);

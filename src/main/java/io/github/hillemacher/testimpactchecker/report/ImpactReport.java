@@ -1,15 +1,12 @@
 package io.github.hillemacher.testimpactchecker.report;
 
-import java.nio.file.Path;
-import java.time.Instant;
 import java.util.List;
 import lombok.NonNull;
 
 /**
  * Immutable view model used for rendering a static test impact report.
  *
- * @param generatedAt UTC timestamp when the report model was created
- * @param projectPath normalized absolute project path used for analysis
+ * @param metadata execution metadata shown in the report header
  * @param impactedTestsCount total number of impacted tests
  * @param uniqueCausesCount number of unique causes across all impacted tests
  * @param averageCausesPerTest average number of causes per impacted test
@@ -18,8 +15,7 @@ import lombok.NonNull;
  * @param impactGraph focused and capped graph topology used for SVG rendering
  */
 public record ImpactReport(
-    @NonNull Instant generatedAt,
-    @NonNull Path projectPath,
+    @NonNull ImpactReportMetadata metadata,
     int impactedTestsCount,
     int uniqueCausesCount,
     double averageCausesPerTest,
@@ -30,8 +26,7 @@ public record ImpactReport(
   /**
    * Validates and normalizes report data.
    *
-   * @param generatedAt UTC timestamp when the report model was created
-   * @param projectPath normalized absolute project path used for analysis
+   * @param metadata execution metadata shown in the report header
    * @param impactedTestsCount total number of impacted tests
    * @param uniqueCausesCount number of unique causes across all impacted tests
    * @param averageCausesPerTest average number of causes per impacted test

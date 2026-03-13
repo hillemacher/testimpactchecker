@@ -2,12 +2,17 @@ package io.github.hillemacher.testimpactchecker.report;
 
 import static org.assertj.core.api.Assertions.assertThat;
 
+import io.github.hillemacher.testimpactchecker.config.AnalysisMode;
+import io.github.hillemacher.testimpactchecker.config.ImpactCheckerConfig;
+import io.github.hillemacher.testimpactchecker.config.MockPolicy;
 import java.nio.file.Path;
 import java.time.Clock;
 import java.time.Instant;
+import java.time.ZoneId;
 import java.time.ZoneOffset;
 import java.util.LinkedHashMap;
 import java.util.LinkedHashSet;
+import java.util.List;
 import java.util.Map;
 import java.util.Set;
 import org.junit.jupiter.api.Test;
@@ -23,8 +28,10 @@ class ImpactReportMapperTest {
   @Test
   void testToImpactReportBuildsDeterministicSortedModel() {
     final Path projectPath = Path.of("/tmp/project");
+    final Path configPath = Path.of("/tmp/configs/checker.json");
     final ImpactReportMapper mapper = new ImpactReportMapper(
         Clock.fixed(Instant.parse("2026-03-11T09:15:00Z"), ZoneOffset.UTC));
+    final ImpactCheckerConfig config = createConfig();
 
     final Map<Path, Set<String>> relevantTestsWithCauses = Map.of(
         projectPath.resolve("module/src/test/java/b/TestB.java"), Set.of("BClass", "AClass"),
@@ -34,11 +41,24 @@ class ImpactReportMapperTest {
         "BClass", Set.of("BClass"),
         "FacadeType", Set.of("AClass", "BClass"));
 
-    final ImpactReport report = mapper.toImpactReport(projectPath, relevantTestsWithCauses,
+    final ImpactReport report = mapper.toImpactReport(
+        projectPath,
+        configPath,
+        config,
+        ZoneId.of("Europe/Berlin"),
+        relevantTestsWithCauses,
         impactedTypeToCauses);
 
-    assertThat(report.generatedAt()).isEqualTo(Instant.parse("2026-03-11T09:15:00Z"));
-    assertThat(report.projectPath()).isEqualTo(projectPath);
+    assertThat(report.metadata().generatedAtUtc()).isEqualTo(Instant.parse("2026-03-11T09:15:00Z"));
+    assertThat(report.metadata().projectPath()).isEqualTo(projectPath);
+    assertThat(report.metadata().executionZoneId()).isEqualTo(ZoneId.of("Europe/Berlin"));
+    assertThat(report.metadata().baseRef()).contains("refs/heads/main");
+    assertThat(report.metadata().targetRef()).contains("HEAD");
+    assertThat(report.metadata().annotations()).containsExactly("ContextConfiguration", "IntegrationTest");
+    assertThat(report.metadata().analysisMode()).isEqualTo(AnalysisMode.TRANSITIVE);
+    assertThat(report.metadata().maxPropagationDepth()).isEqualTo(4);
+    assertThat(report.metadata().mockPolicy()).isEqualTo(MockPolicy.FILTER_MOCKED_PATHS);
+    assertThat(report.metadata().configPath()).contains(configPath.toAbsolutePath().normalize());
     assertThat(report.impactedTestsCount()).isEqualTo(2);
     assertThat(report.uniqueCausesCount()).isEqualTo(2);
     assertThat(report.averageCausesPerTest()).isEqualTo(1.5);
@@ -69,7 +89,13 @@ class ImpactReportMapperTest {
     final ImpactReportMapper mapper = new ImpactReportMapper(
         Clock.fixed(Instant.parse("2026-03-11T09:15:00Z"), ZoneOffset.UTC));
 
-    final ImpactReport report = mapper.toImpactReport(projectPath, Map.of(), Map.of());
+    final ImpactReport report = mapper.toImpactReport(
+        projectPath,
+        null,
+        createConfig(),
+        ZoneId.of("UTC"),
+        Map.of(),
+        Map.of());
 
     assertThat(report.impactedTestsCount()).isZero();
     assertThat(report.uniqueCausesCount()).isZero();
@@ -77,6 +103,7 @@ class ImpactReportMapperTest {
     assertThat(report.impactedTests()).isEmpty();
     assertThat(report.topCauses()).isEmpty();
     assertThat(report.impactGraph()).isEqualTo(ImpactGraph.empty());
+    assertThat(report.metadata().configPath()).isEmpty();
   }
 
   /**
@@ -98,10 +125,10 @@ class ImpactReportMapperTest {
       impactedTypeToCauses.put("Type" + i, new LinkedHashSet<>(Set.of(cause)));
     }
 
-    final ImpactReport report1 = mapper.toImpactReport(projectPath, relevantTestsWithCauses,
-        impactedTypeToCauses);
-    final ImpactReport report2 = mapper.toImpactReport(projectPath, relevantTestsWithCauses,
-        impactedTypeToCauses);
+    final ImpactReport report1 = mapper.toImpactReport(
+        projectPath, null, createConfig(), ZoneId.of("UTC"), relevantTestsWithCauses, impactedTypeToCauses);
+    final ImpactReport report2 = mapper.toImpactReport(
+        projectPath, null, createConfig(), ZoneId.of("UTC"), relevantTestsWithCauses, impactedTypeToCauses);
 
     assertThat(report1.impactGraph().stats().isTruncated()).isTrue();
     assertThat(report1.impactGraph().stats().shownNodes()).isLessThanOrEqualTo(80);
@@ -121,13 +148,60 @@ class ImpactReportMapperTest {
     final Map<Path, Set<String>> relevantTestsWithCauses = Map.of(
         projectPath.resolve("module/src/test/java/FooTest.java"), Set.of("FooService"));
 
-    final ImpactReport direct = mapper.toImpactReport(projectPath, relevantTestsWithCauses,
+    final ImpactReport direct = mapper.toImpactReport(
+        projectPath,
+        null,
+        createConfig(),
+        ZoneId.of("UTC"),
+        relevantTestsWithCauses,
         Map.of("FooService", Set.of("FooService")));
-    final ImpactReport transitive = mapper.toImpactReport(projectPath, relevantTestsWithCauses,
+    final ImpactReport transitive = mapper.toImpactReport(
+        projectPath,
+        null,
+        createConfig(),
+        ZoneId.of("UTC"),
+        relevantTestsWithCauses,
         Map.of("FooFacade", Set.of("FooService"), "FooService", Set.of("FooService")));
 
     assertThat(direct.impactGraph().nodes()).anyMatch(node -> node.kind() == ImpactGraphNodeKind.CAUSE);
     assertThat(direct.impactGraph().nodes()).anyMatch(node -> node.kind() == ImpactGraphNodeKind.TEST);
     assertThat(transitive.impactGraph().nodes()).anyMatch(node -> node.kind() == ImpactGraphNodeKind.TYPE);
+  }
+
+  /**
+   * Verifies annotations are sorted deterministically and blank refs are omitted from metadata.
+   */
+  @Test
+  void testToImpactReportNormalizesMetadataValues() {
+    final Path projectPath = Path.of("/tmp/project");
+    final ImpactReportMapper mapper = new ImpactReportMapper(
+        Clock.fixed(Instant.parse("2026-03-11T09:15:00Z"), ZoneOffset.UTC));
+    final ImpactCheckerConfig config = new ImpactCheckerConfig();
+    config.setAnnotations(List.of("Zeta", "Alpha"));
+    config.setBaseRef(" ");
+    config.setTargetRef(null);
+
+    final ImpactReport report = mapper.toImpactReport(
+        projectPath,
+        Path.of("/tmp/configs/report.json"),
+        config,
+        ZoneId.of("Europe/Berlin"),
+        Map.of(),
+        Map.of());
+
+    assertThat(report.metadata().annotations()).containsExactly("Alpha", "Zeta");
+    assertThat(report.metadata().baseRef()).isEmpty();
+    assertThat(report.metadata().targetRef()).isEmpty();
+  }
+
+  private ImpactCheckerConfig createConfig() {
+    final ImpactCheckerConfig config = new ImpactCheckerConfig();
+    config.setAnnotations(List.of("IntegrationTest", "ContextConfiguration"));
+    config.setBaseRef("refs/heads/main");
+    config.setTargetRef("HEAD");
+    config.setAnalysisMode(AnalysisMode.TRANSITIVE);
+    config.setMaxPropagationDepth(4);
+    config.setMockPolicy(MockPolicy.FILTER_MOCKED_PATHS);
+    return config;
   }
 }

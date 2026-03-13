@@ -1,5 +1,7 @@
 package io.github.hillemacher.testimpactchecker.report;
 
+import java.time.Instant;
+import java.time.ZoneId;
 import java.time.ZoneOffset;
 import java.time.format.DateTimeFormatter;
 import java.util.Locale;
@@ -10,10 +12,13 @@ import lombok.NonNull;
  */
 public class HtmlImpactReportRenderer {
 
-  private static final DateTimeFormatter DATE_TIME_FORMATTER =
+  private static final DateTimeFormatter UTC_DATE_TIME_FORMATTER =
       DateTimeFormatter.ofPattern("yyyy-MM-dd HH:mm:ss 'UTC'")
           .withLocale(Locale.ROOT)
           .withZone(ZoneOffset.UTC);
+  private static final DateTimeFormatter LOCAL_DATE_TIME_FORMATTER =
+      DateTimeFormatter.ofPattern("yyyy-MM-dd HH:mm:ss z")
+          .withLocale(Locale.ROOT);
   private final ImpactGraphSvgRenderer impactGraphSvgRenderer = new ImpactGraphSvgRenderer();
 
   /**
@@ -39,13 +44,9 @@ public class HtmlImpactReportRenderer {
     html.append("  <main class=\"container\">\n");
     html.append("    <header class=\"page-header\">\n");
     html.append("      <h1>Test Impact Report</h1>\n");
-    html.append("      <p class=\"meta\">Project: ")
-        .append(escapeHtml(report.projectPath().toString()))
-        .append("</p>\n");
-    html.append("      <p class=\"meta\">Generated: ")
-        .append(escapeHtml(DATE_TIME_FORMATTER.format(report.generatedAt())))
-        .append("</p>\n");
     html.append("    </header>\n");
+
+    renderMetadataSection(report, html);
 
     html.append("    <section class=\"card-section\">\n");
     html.append("      <article class=\"metric-card\"><h2>Impacted tests</h2><p>")
@@ -67,6 +68,40 @@ public class HtmlImpactReportRenderer {
     html.append("</body>\n");
     html.append("</html>\n");
     return html.toString();
+  }
+
+  private void renderMetadataSection(final ImpactReport report, final StringBuilder html) {
+    final ImpactReportMetadata metadata = report.metadata();
+    html.append("    <section>\n");
+    html.append("      <h2>Run metadata</h2>\n");
+    html.append("      <dl class=\"metadata-grid\">\n");
+    appendMetadataItem(html, "Project", metadata.projectPath().toString());
+    appendMetadataItem(html, "Generated", formatGeneratedTimestamp(
+        metadata.generatedAtUtc(), metadata.executionZoneId()));
+    appendMetadataItem(html, "Execution zone", metadata.executionZoneId().getId());
+    appendMetadataItem(html, "Base ref", metadata.baseRef().orElse("\u2014"));
+    appendMetadataItem(html, "Target ref", metadata.targetRef().orElse("\u2014"));
+    appendMetadataItem(html, "Annotations",
+        metadata.annotations().isEmpty() ? "\u2014" : String.join(", ", metadata.annotations()));
+    appendMetadataItem(html, "Analysis mode", metadata.analysisMode().name());
+    appendMetadataItem(html, "Max propagation depth", Integer.toString(metadata.maxPropagationDepth()));
+    appendMetadataItem(html, "Mock policy", metadata.mockPolicy().name());
+    metadata.configPath()
+        .ifPresent(configPath -> appendMetadataItem(html, "Config path", configPath.toString()));
+    html.append("      </dl>\n");
+    html.append("    </section>\n");
+  }
+
+  private void appendMetadataItem(final StringBuilder html, final String label, final String value) {
+    html.append("        <dt>").append(escapeHtml(label)).append("</dt>\n");
+    html.append("        <dd>").append(escapeHtml(value)).append("</dd>\n");
+  }
+
+  private String formatGeneratedTimestamp(final Instant generatedAtUtc, final ZoneId executionZoneId) {
+    return LOCAL_DATE_TIME_FORMATTER.withZone(executionZoneId).format(generatedAtUtc)
+        + " ("
+        + UTC_DATE_TIME_FORMATTER.format(generatedAtUtc)
+        + ")";
   }
 
   private void renderImpactedTestsSection(final ImpactReport report, final StringBuilder html) {
@@ -189,6 +224,21 @@ public class HtmlImpactReportRenderer {
           margin: 0.3rem 0;
           color: var(--muted);
         }
+        .metadata-grid {
+          display: grid;
+          grid-template-columns: minmax(180px, 240px) 1fr;
+          gap: 0.45rem 1rem;
+          margin: 0;
+        }
+        .metadata-grid dt {
+          color: var(--muted);
+          font-weight: 600;
+        }
+        .metadata-grid dd,
+        .metadata-grid dt {
+          margin: 0;
+          word-break: break-word;
+        }
         section {
           background: var(--surface);
           border: 1px solid var(--border);
@@ -301,6 +351,9 @@ public class HtmlImpactReportRenderer {
         @media (max-width: 640px) {
           h1 {
             font-size: 1.6rem;
+          }
+          .metadata-grid {
+            grid-template-columns: 1fr;
           }
           .metric-card p {
             font-size: 1.3rem;
