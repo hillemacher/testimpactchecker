@@ -1,6 +1,7 @@
 package io.github.hillemacher.testimpactchecker.cli;
 
 import com.fasterxml.jackson.databind.ObjectMapper;
+import io.github.hillemacher.testimpactchecker.ImpactDetectionReportData;
 import io.github.hillemacher.testimpactchecker.TestImpactChecker;
 import io.github.hillemacher.testimpactchecker.config.ImpactCheckerConfig;
 import io.github.hillemacher.testimpactchecker.report.HtmlImpactReportRenderer;
@@ -120,8 +121,9 @@ public class TestImpactCheckerCli {
 
       final TestImpactChecker testImpactChecker = new TestImpactChecker();
       log.info("Running impact detection");
-      final Map<Path, Set<String>> relevantTestsWithCauses = testImpactChecker.detectImpactWithCauses(
+      final ImpactDetectionReportData impactDetectionReportData = testImpactChecker.detectImpactReportData(
           projectPath.toAbsolutePath().normalize(), impactCheckerConfig);
+      final Map<Path, Set<String>> relevantTestsWithCauses = impactDetectionReportData.relevantTestsWithCauses();
       log.info("Impact detection completed: {} impacted tests found", relevantTestsWithCauses.size());
 
       boolean htmlReportWrittenSuccessfully = true;
@@ -129,7 +131,7 @@ public class TestImpactCheckerCli {
           resolveHtmlReportOutputPath(cmd, impactCheckerConfig);
       if (configuredHtmlReportOutputPath.isPresent()) {
         htmlReportWrittenSuccessfully = writeHtmlReport(projectPath, configuredHtmlReportOutputPath.get(),
-            relevantTestsWithCauses);
+            impactDetectionReportData);
       }
 
       System.out.println();
@@ -182,12 +184,15 @@ public class TestImpactCheckerCli {
   private static boolean writeHtmlReport(
       @NonNull final Path projectPath,
       @NonNull final String configuredOutputPath,
-      @NonNull final Map<Path, Set<String>> relevantTestsWithCauses) {
+      @NonNull final ImpactDetectionReportData impactDetectionReportData) {
     final ImpactReportMapper mapper = new ImpactReportMapper();
     final HtmlImpactReportRenderer renderer = new HtmlImpactReportRenderer();
     final ImpactReportWriter writer = new ImpactReportWriter();
 
-    final ImpactReport report = mapper.toImpactReport(projectPath, relevantTestsWithCauses);
+    final ImpactReport report = mapper.toImpactReport(
+        projectPath,
+        impactDetectionReportData.relevantTestsWithCauses(),
+        impactDetectionReportData.impactedTypeToCauses());
     final String htmlContent = renderer.render(report);
     final Path outputPath = writer.resolveOutputPath(projectPath, configuredOutputPath);
     try {

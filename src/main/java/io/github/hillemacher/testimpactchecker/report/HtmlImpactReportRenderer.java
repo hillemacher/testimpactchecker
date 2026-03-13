@@ -14,6 +14,7 @@ public class HtmlImpactReportRenderer {
       DateTimeFormatter.ofPattern("yyyy-MM-dd HH:mm:ss 'UTC'")
           .withLocale(Locale.ROOT)
           .withZone(ZoneOffset.UTC);
+  private final ImpactGraphSvgRenderer impactGraphSvgRenderer = new ImpactGraphSvgRenderer();
 
   /**
    * Renders report content as a complete HTML document.
@@ -60,6 +61,7 @@ public class HtmlImpactReportRenderer {
 
     renderImpactedTestsSection(report, html);
     renderTopCausesSection(report, html);
+    renderImpactGraphSection(report, html);
 
     html.append("  </main>\n");
     html.append("</body>\n");
@@ -115,6 +117,34 @@ public class HtmlImpactReportRenderer {
     });
     html.append("        </tbody>\n");
     html.append("      </table>\n");
+    html.append("      </div>\n");
+    html.append("    </section>\n");
+  }
+
+  private void renderImpactGraphSection(final ImpactReport report, final StringBuilder html) {
+    html.append("    <section>\n");
+    html.append("      <h2>Impact graph</h2>\n");
+    html.append("      <p class=\"meta\">Focused, capped graph (causes -> impacted types -> impacted tests)</p>\n");
+    html.append("      <p class=\"legend\">");
+    html.append("<span class=\"legend-chip legend-cause\">Changed causes</span> ");
+    html.append("<span class=\"legend-chip legend-type\">Impacted types</span> ");
+    html.append("<span class=\"legend-chip legend-test\">Impacted tests</span>");
+    html.append("</p>\n");
+
+    final ImpactGraph impactGraph = report.impactGraph();
+    if (impactGraph.stats().isTruncated()) {
+      html.append("      <p class=\"meta\">Showing ")
+          .append(impactGraph.stats().shownNodes())
+          .append("/")
+          .append(impactGraph.stats().totalNodes())
+          .append(" nodes and ")
+          .append(impactGraph.stats().shownEdges())
+          .append("/")
+          .append(impactGraph.stats().totalEdges())
+          .append(" edges.</p>\n");
+    }
+    html.append("      <div class=\"graph-wrapper\">\n");
+    html.append(impactGraphSvgRenderer.render(impactGraph));
     html.append("      </div>\n");
     html.append("    </section>\n");
   }
@@ -206,6 +236,67 @@ public class HtmlImpactReportRenderer {
         .empty-state {
           margin: 0;
           color: var(--muted);
+        }
+        .graph-wrapper {
+          overflow-x: auto;
+          border: 1px solid var(--border);
+          border-radius: 10px;
+          background: #f9fbfc;
+          padding: 0.5rem;
+        }
+        .impact-graph-svg {
+          min-width: 980px;
+          width: 100%;
+          height: auto;
+          display: block;
+        }
+        .graph-edge {
+          stroke: #8ba2ad;
+          stroke-width: 1.2;
+        }
+        .graph-node {
+          stroke: #607985;
+          stroke-width: 1;
+        }
+        .graph-node-cause {
+          fill: #fbe0de;
+        }
+        .graph-node-type {
+          fill: #f9eecf;
+        }
+        .graph-node-test {
+          fill: #d9ebf4;
+        }
+        .graph-label {
+          font-size: 11px;
+          fill: #16313d;
+          font-family: \"IBM Plex Sans\", \"Segoe UI\", sans-serif;
+        }
+        .lane-header {
+          font-size: 12px;
+          fill: #365462;
+          font-weight: 700;
+          font-family: \"IBM Plex Sans\", \"Segoe UI\", sans-serif;
+        }
+        .legend {
+          margin: 0.5rem 0 0.8rem;
+        }
+        .legend-chip {
+          display: inline-block;
+          border: 1px solid var(--border);
+          border-radius: 999px;
+          padding: 0.15rem 0.55rem;
+          margin-right: 0.4rem;
+          font-size: 0.78rem;
+        }
+        .legend-cause {
+          background: #fbe0de;
+        }
+        .legend-type {
+          background: #f9eecf;
+        }
+        .legend-test {
+          background: #d9ebf4;
         }
         @media (max-width: 640px) {
           h1 {

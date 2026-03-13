@@ -56,9 +56,24 @@ public class ImpactAnalysisEngine {
       final Path repositoryPath,
       final Set<Path> mainJavaDirs,
       final Set<Path> testJavaDirs) {
+    return analyzeImpact(repositoryPath, mainJavaDirs, testJavaDirs).relevantTestsWithCauses();
+  }
+
+  /**
+   * Runs end-to-end impact analysis and returns both impacted tests and propagated type topology.
+   *
+   * @param repositoryPath repository root path
+   * @param mainJavaDirs directories containing main Java sources
+   * @param testJavaDirs directories containing test Java sources
+   * @return full analysis result for report generation and diagnostics
+   */
+  public ImpactAnalysisResult analyzeImpact(
+      final Path repositoryPath,
+      final Set<Path> mainJavaDirs,
+      final Set<Path> testJavaDirs) {
     final Set<Path> changedClassPaths = changedClassLocator.findChangedClassPaths(mainJavaDirs, repositoryPath);
     if (changedClassPaths.isEmpty()) {
-      return Map.of();
+      return new ImpactAnalysisResult(Map.of(), new ImpactPropagationResult(Map.of(), Map.of()));
     }
 
     final ChangedTypeSeedData changedTypeSeedData = changedTypeSeedResolver.resolve(changedClassPaths,
@@ -66,11 +81,12 @@ public class ImpactAnalysisEngine {
     final ImpactPropagationResult propagationResult = buildPropagationResult(changedTypeSeedData,
         mainJavaDirs);
 
-    return analyzeTests(
+    final Map<Path, Set<String>> relevantTestsWithCauses = analyzeTests(
         propagationResult,
         changedTypeSeedData.changedClassNames(),
         testJavaDirs,
         resolveMockPolicy());
+    return new ImpactAnalysisResult(relevantTestsWithCauses, propagationResult);
   }
 
   /**

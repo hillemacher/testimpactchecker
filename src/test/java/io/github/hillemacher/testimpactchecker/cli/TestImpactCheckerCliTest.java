@@ -4,6 +4,7 @@ import static org.assertj.core.api.Assertions.assertThat;
 import static org.mockito.ArgumentMatchers.any;
 import static org.mockito.Mockito.when;
 
+import io.github.hillemacher.testimpactchecker.ImpactDetectionReportData;
 import io.github.hillemacher.testimpactchecker.TestImpactChecker;
 import io.github.hillemacher.testimpactchecker.config.ImpactCheckerConfig;
 import java.io.ByteArrayOutputStream;
@@ -223,14 +224,18 @@ class TestImpactCheckerCliTest {
     final Map<Path, Set<String>> impacts = new LinkedHashMap<>();
     impacts.put(testB, Set.of("BClass"));
     impacts.put(testA, Set.of("CClass", "AClass"));
+    final Map<String, Set<String>> impactedTypeToCauses = Map.of(
+        "AClass", Set.of("AClass"),
+        "CClass", Set.of("CClass"),
+        "FacadeType", Set.of("AClass", "CClass"));
 
     final ByteArrayOutputStream stdout = new ByteArrayOutputStream();
     final PrintStream originalOut = System.out;
     System.setOut(new PrintStream(stdout, true, StandardCharsets.UTF_8));
     try (MockedConstruction<TestImpactChecker> construction =
         Mockito.mockConstruction(TestImpactChecker.class, (mock, context) -> {
-          when(mock.detectImpactWithCauses(any(Path.class), any(ImpactCheckerConfig.class)))
-              .thenReturn(impacts);
+          when(mock.detectImpactReportData(any(Path.class), any(ImpactCheckerConfig.class)))
+              .thenReturn(new ImpactDetectionReportData(impacts, impactedTypeToCauses));
         })) {
       TestImpactCheckerCli.main(args);
       assertThat(construction.constructed()).hasSize(1);

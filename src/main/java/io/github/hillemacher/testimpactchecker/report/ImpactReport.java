@@ -15,6 +15,7 @@ import java.util.Objects;
  * @param averageCausesPerTest average number of causes per impacted test
  * @param impactedTests impacted test entries sorted by relative path
  * @param topCauses cause summary entries sorted by descending impact and cause name
+ * @param impactGraph focused and capped graph topology used for SVG rendering
  */
 public record ImpactReport(
     Instant generatedAt,
@@ -23,7 +24,8 @@ public record ImpactReport(
     int uniqueCausesCount,
     double averageCausesPerTest,
     List<ImpactedTestEntry> impactedTests,
-    List<CauseSummaryEntry> topCauses) {
+    List<CauseSummaryEntry> topCauses,
+    ImpactGraph impactGraph) {
 
   /**
    * Validates and normalizes report data.
@@ -35,15 +37,11 @@ public record ImpactReport(
    * @param averageCausesPerTest average number of causes per impacted test
    * @param impactedTests impacted test entries sorted by relative path
    * @param topCauses cause summary entries sorted by descending impact and cause name
+   * @param impactGraph focused and capped graph topology used for SVG rendering
    * @throws NullPointerException if required reference fields are {@code null}
    * @throws IllegalArgumentException if numeric counters are negative
    */
   public ImpactReport {
-    Objects.requireNonNull(generatedAt, "generatedAt must not be null");
-    Objects.requireNonNull(projectPath, "projectPath must not be null");
-    Objects.requireNonNull(impactedTests, "impactedTests must not be null");
-    Objects.requireNonNull(topCauses, "topCauses must not be null");
-
     if (impactedTestsCount < 0) {
       throw new IllegalArgumentException("impactedTestsCount must be >= 0");
     }
