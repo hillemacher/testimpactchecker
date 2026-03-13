@@ -126,7 +126,19 @@ Clone the repository and build with your preferred Java build tool (e.g., Maven 
 
 ## Contributing
 
-Use the Gradle wrapper for local verification so formatting, style, and tests match CI.
+This project uses `google-java-format` as the canonical Java formatting standard.
+GitHub CI enforces the same style through `Spotless`, so the easiest way to avoid formatting-only
+failures is to format locally before opening a pull request.
+
+If your IDE supports Google Java Format, enable it for this project so Java files are formatted
+automatically while you work.
+
+- IntelliJ IDEA: install and enable the Google Java Format plugin.
+- Eclipse: install and enable the Google Java Format plugin.
+- VS Code: use a Java formatter extension or workspace setup that applies Google Java Format.
+
+If your IDE is not configured yet, use the Gradle wrapper as the source of truth for local
+formatting and verification.
 
 Format Java sources before committing:
 
@@ -140,8 +152,11 @@ Run the full verification suite before opening a pull request:
 ./gradlew check
 ```
 
-Pull requests are expected to pass the GitHub Actions CI workflow, and repository admins can
-enforce that by marking the workflow check as required in branch protection for `main`.
+`./gradlew check` runs the same formatting, style, and test verification that CI runs for pull
+requests.
+
+Pull requests are expected to pass the GitHub Actions workflow, and repository admins can enforce
+that by marking the workflow check as required in branch protection for `main`.
 
 ## Dependencies
 
