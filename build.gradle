@@ -1,4 +1,6 @@
 plugins {
+    id 'checkstyle'
+    id 'com.diffplug.spotless' version '6.25.0'
     id("com.gradleup.shadow") version "8.3.8"
     id 'application'
     id 'java'
@@ -9,6 +11,23 @@ version = '1.0-SNAPSHOT'
 
 repositories {
     mavenCentral()
+}
+
+checkstyle {
+    toolVersion = '10.21.3'
+    configFile = file('config/checkstyle/checkstyle.xml')
+}
+
+spotless {
+    java {
+        target 'src/*/java/**/*.java'
+        googleJavaFormat('1.25.2')
+        formatAnnotations()
+        importOrder()
+        removeUnusedImports()
+        trimTrailingWhitespace()
+        endWithNewline()
+    }
 }
 
 dependencies {
@@ -67,4 +86,11 @@ shadowJar {
     archiveBaseName.set('TestImpactChecker')
     archiveClassifier.set('CLI')
     archiveVersion.set("${project.version}")
+}
+
+tasks.withType(Checkstyle).configureEach {
+    reports {
+        xml.required = false
+        html.required = true
+    }
 }
