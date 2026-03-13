@@ -52,6 +52,7 @@ When `--html-report` is set, the checker additionally writes a static HTML artif
 - Summary cards (impacted tests, unique causes, average causes per test)
 - Impacted tests and their causes
 - Top causes sorted by impacted test count
+- A static impact graph (inline SVG) with lanes `causes -> impacted types -> impacted tests`
 
 Path behavior:
 
@@ -62,6 +63,8 @@ Path behavior:
 CI recommendation:
 
 - Use `${project}/reports/impact-report.html` as your artifact path.
+- The graph is intentionally focused/capped for readability and deterministic CI artifacts.
+- Default caps for the graph are fixed in code (`12` causes, `28` impacted types, `40` tests, `80` total nodes).
 
 ## Configuration
 

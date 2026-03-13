@@ -5,6 +5,7 @@ import com.github.javaparser.ParserConfiguration;
 import io.github.hillemacher.testimpactchecker.config.ImpactCheckerConfig;
 import io.github.hillemacher.testimpactchecker.java.JavaImpactUtils;
 import io.github.hillemacher.testimpactchecker.java.analysis.ImpactAnalysisEngine;
+import io.github.hillemacher.testimpactchecker.java.analysis.ImpactAnalysisResult;
 import java.io.File;
 import java.io.IOException;
 import java.nio.file.Files;
@@ -52,7 +53,8 @@ public class TestImpactChecker {
    */
   public Set<Path> detectImpact(final Path repositoryPath,
       final ImpactCheckerConfig impactCheckerConfig) throws IOException {
-    return new HashSet<>(detectImpactWithCauses(repositoryPath, impactCheckerConfig).keySet());
+    return new HashSet<>(detectImpactReportData(repositoryPath, impactCheckerConfig)
+        .relevantTestsWithCauses().keySet());
   }
 
   /**
@@ -66,6 +68,19 @@ public class TestImpactChecker {
    */
   public Map<Path, Set<String>> detectImpactWithCauses(final Path repositoryPath,
       final ImpactCheckerConfig impactCheckerConfig) throws IOException {
+    return detectImpactReportData(repositoryPath, impactCheckerConfig).relevantTestsWithCauses();
+  }
+
+  /**
+   * Detects impact and returns both test-level and propagated type-level cause mappings.
+   *
+   * @param repositoryPath the root path of the repository to scan
+   * @param impactCheckerConfig configuration for annotations and git refs
+   * @return report-ready impact model containing impacted tests and impacted types with causes
+   * @throws IOException if file system operations fail while scanning source directories
+   */
+  public ImpactDetectionReportData detectImpactReportData(final Path repositoryPath,
+      final ImpactCheckerConfig impactCheckerConfig) throws IOException {
     log.info("Discovering Java source directories under {}", repositoryPath);
     final JavaImpactUtils javaImpactUtils = createJavaImpactUtils(impactCheckerConfig);
 
@@ -78,11 +93,14 @@ public class TestImpactChecker {
     log.debug("Test Java source directories: {}", testJavaDirs);
 
     final ImpactAnalysisEngine impactAnalysisEngine = javaImpactUtils.createEngine();
-    final Map<Path, Set<String>> relevantTestsWithCauses = impactAnalysisEngine.analyzeImpactWithCauses(
+    final ImpactAnalysisResult impactAnalysisResult = impactAnalysisEngine.analyzeImpact(
         repositoryPath, mainJavaDirs, testJavaDirs);
+    final Map<Path, Set<String>> relevantTestsWithCauses = impactAnalysisResult.relevantTestsWithCauses();
     log.info("Detected {} impacted tests", relevantTestsWithCauses.size());
     log.debug("Impacted tests with causes: {}", relevantTestsWithCauses);
-    return relevantTestsWithCauses;
+    return new ImpactDetectionReportData(
+        relevantTestsWithCauses,
+        impactAnalysisResult.propagationResult().impactedTypeToCauses());
   }
 
   // Recursively find all src/main/java or src/test/java dirs from a given root
