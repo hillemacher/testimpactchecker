@@ -112,7 +112,8 @@ and `targetRef` to the desired branch, tag, or commit. For example, to compare c
 
 ## Requirements
 
-- Java 21 or later
+- Java 21 toolchain for compilation
+- Gradle 9.4.0 via the included wrapper (`./gradlew`)
 - A Git repository (with JGit-compatible structure)
 - Java source files organized under standard Maven/Gradle directories (`src/main/java`, `src/test/java`)
 
@@ -122,7 +123,8 @@ Integrate this tool into your CI pipeline to optimize test runs and accelerate f
 
 ## Building
 
-Clone the repository and build with your preferred Java build tool (e.g., Maven or Gradle).
+Clone the repository and build with the included Gradle wrapper. The build is pinned to a Java 21
+toolchain, while Gradle 9.4.0 can run on newer installed JDKs.
 
 ## Contributing
 

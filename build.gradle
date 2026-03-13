@@ -9,6 +9,12 @@ plugins {
 group = 'io.github.hillemacher'
 version = '1.0-SNAPSHOT'
 
+java {
+    toolchain {
+        languageVersion = JavaLanguageVersion.of(21)
+    }
+}
+
 repositories {
     mavenCentral()
 }
@@ -44,6 +50,7 @@ dependencies {
 
     testImplementation platform("org.junit:junit-bom:5.10.0")
     testImplementation 'org.junit.jupiter:junit-jupiter'
+    testRuntimeOnly("org.junit.platform:junit-platform-launcher")
 
     testImplementation("org.mockito:mockito-junit-jupiter:5.18.0")
     testImplementation("org.assertj:assertj-core:3.27.3")
@@ -61,6 +68,10 @@ application {
 
 test {
     useJUnitPlatform()
+}
+
+tasks.withType(JavaCompile).configureEach {
+    options.release = 21
 }
 
 sourceSets {
