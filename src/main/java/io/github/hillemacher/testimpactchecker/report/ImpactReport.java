@@ -12,7 +12,7 @@ import lombok.NonNull;
  * @param averageCausesPerTest average number of causes per impacted test
  * @param impactedTests impacted test entries sorted by relative path
  * @param topCauses cause summary entries sorted by descending impact and cause name
- * @param impactGraph focused and capped graph topology used for SVG rendering
+ * @param graphBundle graph views used for overview and per-cause detail rendering
  */
 public record ImpactReport(
     @NonNull ImpactReportMetadata metadata,
@@ -21,7 +21,7 @@ public record ImpactReport(
     double averageCausesPerTest,
     @NonNull List<ImpactedTestEntry> impactedTests,
     @NonNull List<CauseSummaryEntry> topCauses,
-    @NonNull ImpactGraph impactGraph) {
+    @NonNull ImpactGraphBundle graphBundle) {
 
   /**
    * Validates and normalizes report data.
@@ -32,7 +32,7 @@ public record ImpactReport(
    * @param averageCausesPerTest average number of causes per impacted test
    * @param impactedTests impacted test entries sorted by relative path
    * @param topCauses cause summary entries sorted by descending impact and cause name
-   * @param impactGraph focused and capped graph topology used for SVG rendering
+   * @param graphBundle graph views used for overview and per-cause detail rendering
    * @throws NullPointerException if required reference fields are {@code null}
    * @throws IllegalArgumentException if numeric counters are negative
    */

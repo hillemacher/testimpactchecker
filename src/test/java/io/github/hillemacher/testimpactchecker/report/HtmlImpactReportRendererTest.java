@@ -32,16 +32,7 @@ class HtmlImpactReportRendererTest {
         1,
         List.of(new ImpactedTestEntry(Path.of("module/Test<Evil>.java"), List.of("Ca&use\""))),
         List.of(new CauseSummaryEntry("Ca&use\"", 1)),
-        new ImpactGraph(
-            List.of(
-                new ImpactGraphNode("cause|Ca&use\"", "Ca&use\"", ImpactGraphNodeKind.CAUSE, 1),
-                new ImpactGraphNode("type|Fa<cade>", "Fa<cade>", ImpactGraphNodeKind.TYPE, 1),
-                new ImpactGraphNode("test|module/Test<Evil>.java", "module/Test<Evil>.java",
-                    ImpactGraphNodeKind.TEST, 1)),
-            List.of(
-                new ImpactGraphEdge("cause|Ca&use\"", "type|Fa<cade>"),
-                new ImpactGraphEdge("type|Fa<cade>", "test|module/Test<Evil>.java")),
-            new ImpactGraphStats(3, 3, 2, 2)));
+        createGraphBundle("Ca&use\"", "Fa<cade>", "module/Test<Evil>.java"));
 
     final String html = renderer.render(report);
 
@@ -51,6 +42,9 @@ class HtmlImpactReportRendererTest {
     assertThat(html).contains("Top causes");
     assertThat(html).contains("Impact graph");
     assertThat(html).contains("impact-graph-svg");
+    assertThat(html).contains("Overview");
+    assertThat(html).contains("Per-cause detail");
+    assertThat(html).contains("<details");
     assertThat(html).contains("Base ref");
     assertThat(html).contains("refs/heads/main&lt;&amp;&gt;");
     assertThat(html).contains("Target ref");
@@ -63,6 +57,7 @@ class HtmlImpactReportRendererTest {
     assertThat(html).contains("Europe/Berlin");
     assertThat(html).contains("Generated");
     assertThat(html).contains("2026-03-11 10:15:00 CET (2026-03-11 09:15:00 UTC)");
+    assertThat(html).contains("Overview hides 1 lower-signal edges to reduce clutter.");
     assertThat(html).contains("module/Test&lt;Evil&gt;.java");
     assertThat(html).contains("Ca&amp;use&quot;");
     assertThat(html).contains("Fa&lt;cade&gt;");
@@ -79,7 +74,7 @@ class HtmlImpactReportRendererTest {
     final HtmlImpactReportRenderer renderer = new HtmlImpactReportRenderer();
     final ImpactReport report = new ImpactReport(
         createMetadata(Path.of("/tmp/project"), null, ZoneId.of("UTC")), 0, 0, 0,
-        List.of(), List.of(), ImpactGraph.empty());
+        List.of(), List.of(), ImpactGraphBundle.empty());
 
     final String html = renderer.render(report);
 
@@ -98,14 +93,21 @@ class HtmlImpactReportRendererTest {
         createMetadata(Path.of("/tmp/project"), null, ZoneId.of("UTC")), 2, 2, 1.5,
         List.of(new ImpactedTestEntry(Path.of("A.java"), List.of("A"))),
         List.of(new CauseSummaryEntry("A", 2)),
-        new ImpactGraph(
-            List.of(new ImpactGraphNode("cause|A", "A", ImpactGraphNodeKind.CAUSE, 2)),
-            List.of(),
-            new ImpactGraphStats(120, 80, 300, 190)));
+        new ImpactGraphBundle(
+            new ImpactGraph(
+                List.of(new ImpactGraphNode("cause|A", "A", ImpactGraphNodeKind.CAUSE, 2)),
+                List.of(),
+                new ImpactGraphStats(120, 80, 300, 190)),
+            new ImpactGraph(
+                List.of(new ImpactGraphNode("cause|A", "A", ImpactGraphNodeKind.CAUSE, 2)),
+                List.of(),
+                new ImpactGraphStats(80, 80, 190, 0)),
+            List.of()));
 
     final String html = renderer.render(report);
 
     assertThat(html).contains("Showing 80/120 nodes and 190/300 edges.");
+    assertThat(html).contains("Overview hides 190 lower-signal edges to reduce clutter.");
   }
 
   private ImpactReportMetadata createMetadata(
@@ -123,5 +125,28 @@ class HtmlImpactReportRendererTest {
         4,
         MockPolicy.FILTER_MOCKED_PATHS,
         Optional.ofNullable(configPath));
+  }
+
+  private ImpactGraphBundle createGraphBundle(
+      final String causeLabel,
+      final String typeLabel,
+      final String testLabel) {
+    final ImpactGraph fullGraph = new ImpactGraph(
+        List.of(
+            new ImpactGraphNode("cause|" + causeLabel, causeLabel, ImpactGraphNodeKind.CAUSE, 1),
+            new ImpactGraphNode("type|" + typeLabel, typeLabel, ImpactGraphNodeKind.TYPE, 1),
+            new ImpactGraphNode("test|" + testLabel, testLabel, ImpactGraphNodeKind.TEST, 1)),
+        List.of(
+            new ImpactGraphEdge("cause|" + causeLabel, "type|" + typeLabel),
+            new ImpactGraphEdge("type|" + typeLabel, "test|" + testLabel)),
+        new ImpactGraphStats(3, 3, 2, 2));
+    final ImpactGraph overviewGraph = new ImpactGraph(
+        fullGraph.nodes(),
+        List.of(new ImpactGraphEdge("cause|" + causeLabel, "type|" + typeLabel)),
+        new ImpactGraphStats(3, 3, 2, 1));
+    return new ImpactGraphBundle(
+        fullGraph,
+        overviewGraph,
+        List.of(new ImpactGraphSection(causeLabel, 1, 1, fullGraph)));
   }
 }
