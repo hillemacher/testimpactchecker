@@ -3,7 +3,7 @@ package io.github.hillemacher.testimpactchecker.report;
 import java.nio.file.Path;
 import java.time.Instant;
 import java.util.List;
-import java.util.Objects;
+import lombok.NonNull;
 
 /**
  * Immutable view model used for rendering a static test impact report.
@@ -18,14 +18,14 @@ import java.util.Objects;
  * @param impactGraph focused and capped graph topology used for SVG rendering
  */
 public record ImpactReport(
-    Instant generatedAt,
-    Path projectPath,
+    @NonNull Instant generatedAt,
+    @NonNull Path projectPath,
     int impactedTestsCount,
     int uniqueCausesCount,
     double averageCausesPerTest,
-    List<ImpactedTestEntry> impactedTests,
-    List<CauseSummaryEntry> topCauses,
-    ImpactGraph impactGraph) {
+    @NonNull List<ImpactedTestEntry> impactedTests,
+    @NonNull List<CauseSummaryEntry> topCauses,
+    @NonNull ImpactGraph impactGraph) {
 
   /**
    * Validates and normalizes report data.

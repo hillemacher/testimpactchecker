@@ -6,8 +6,8 @@ import java.util.HashSet;
 import java.util.LinkedHashSet;
 import java.util.List;
 import java.util.Map;
-import java.util.Objects;
 import java.util.Set;
+import lombok.NonNull;
 
 public class TransitiveImpactPropagator {
 
@@ -83,10 +83,6 @@ public class TransitiveImpactPropagator {
     return List.copyOf(path);
   }
 
-  private record TraversalNode(String type, int depth, List<String> pathFromCurrentToSeed) {
-    private TraversalNode {
-      Objects.requireNonNull(type, "type");
-      Objects.requireNonNull(pathFromCurrentToSeed, "pathFromCurrentToSeed");
-    }
+  private record TraversalNode(@NonNull String type, int depth, @NonNull List<String> pathFromCurrentToSeed) {
   }
 }

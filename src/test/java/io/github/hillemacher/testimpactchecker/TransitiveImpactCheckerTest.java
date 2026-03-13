@@ -21,11 +21,17 @@ import org.junit.jupiter.api.io.TempDir;
 import org.mockito.MockedStatic;
 import org.mockito.Mockito;
 
+/**
+ * Tests transitive impact propagation depth and mock-path filtering behavior.
+ */
 class TransitiveImpactCheckerTest {
 
   @TempDir
   Path tempDir;
 
+  /**
+   * Verifies a downstream test is included when transitive propagation reaches it within depth.
+   */
   @Test
   void testTransitiveImpactIncludesDownstreamTestAtDepthTwo() throws IOException {
     final Path repoRoot = createProjectSkeleton(tempDir);
@@ -47,6 +53,9 @@ class TransitiveImpactCheckerTest {
     }
   }
 
+  /**
+   * Verifies transitive propagation does not include downstream tests beyond configured max depth.
+   */
   @Test
   void testTransitiveImpactRespectsMaxDepth() throws IOException {
     final Path repoRoot = createProjectSkeleton(tempDir);
@@ -67,6 +76,9 @@ class TransitiveImpactCheckerTest {
     }
   }
 
+  /**
+   * Verifies a cause is excluded when every witness path is blocked by mocked intermediates.
+   */
   @Test
   void testTransitiveImpactExcludesFullyMockedPaths() throws IOException {
     final Path repoRoot = createProjectSkeleton(tempDir);
@@ -87,6 +99,9 @@ class TransitiveImpactCheckerTest {
     }
   }
 
+  /**
+   * Verifies unrelated mocks do not suppress a valid transitive cause.
+   */
   @Test
   void testTransitiveImpactKeepsCauseWhenMockIsUnrelated() throws IOException {
     final Path repoRoot = createProjectSkeleton(tempDir);
