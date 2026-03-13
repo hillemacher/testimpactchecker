@@ -124,6 +124,25 @@ Integrate this tool into your CI pipeline to optimize test runs and accelerate f
 
 Clone the repository and build with your preferred Java build tool (e.g., Maven or Gradle).
 
+## Contributing
+
+Use the Gradle wrapper for local verification so formatting, style, and tests match CI.
+
+Format Java sources before committing:
+
+```bash
+./gradlew spotlessApply
+```
+
+Run the full verification suite before opening a pull request:
+
+```bash
+./gradlew check
+```
+
+Pull requests are expected to pass the GitHub Actions CI workflow, and repository admins can
+enforce that by marking the workflow check as required in branch protection for `main`.
+
 ## Dependencies
 
 Key dependencies include:
