@@ -19,11 +19,10 @@ public class ChangedClassLocator {
   /**
    * Resolves changed Java source files that belong to production source roots.
    *
-   * <p>The locator combines committed and uncommitted git changes from
-   * {@link io.github.hillemacher.testimpactchecker.git.GitImpactUtils} and keeps only
-   * Java files that live under discovered {@code src/main/java} directories.
-   * Results are returned as repository-relative paths to keep downstream matching stable
-   * across absolute working-directory differences.
+   * <p>The locator combines committed and uncommitted git changes from {@link
+   * io.github.hillemacher.testimpactchecker.git.GitImpactUtils} and keeps only Java files that live
+   * under discovered {@code src/main/java} directories. Results are returned as repository-relative
+   * paths to keep downstream matching stable across absolute working-directory differences.
    *
    * @param mainJavaDirs directories considered main Java sources
    * @param gitRepoPath repository root path
@@ -33,9 +32,7 @@ public class ChangedClassLocator {
     final Set<Path> changedClassPath = new HashSet<>();
     final List<DiffEntry> diffs = GitImpactUtils.getDiffEntries(gitRepoPath, impactCheckerConfig);
 
-    log.debug(
-        "Found diffs {}",
-        diffs.stream().map(DiffEntry::toString).toList());
+    log.debug("Found diffs {}", diffs.stream().map(DiffEntry::toString).toList());
 
     for (final DiffEntry diff : diffs) {
       final String currentDiffPath = diff.getNewPath();

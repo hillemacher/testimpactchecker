@@ -8,5 +8,4 @@ import lombok.NonNull;
  * @param fromNodeId source node id
  * @param toNodeId target node id
  */
-public record ImpactGraphEdge(@NonNull String fromNodeId, @NonNull String toNodeId) {
-}
+public record ImpactGraphEdge(@NonNull String fromNodeId, @NonNull String toNodeId) {}

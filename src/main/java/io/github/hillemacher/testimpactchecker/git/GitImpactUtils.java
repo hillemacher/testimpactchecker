@@ -22,9 +22,7 @@ import org.eclipse.jgit.revwalk.RevWalk;
 import org.eclipse.jgit.treewalk.AbstractTreeIterator;
 import org.eclipse.jgit.treewalk.CanonicalTreeParser;
 
-/**
- * Git-related helper utilities used for detecting changed files and revisions.
- */
+/** Git-related helper utilities used for detecting changed files and revisions. */
 @Slf4j
 @NoArgsConstructor(access = AccessLevel.PRIVATE)
 public class GitImpactUtils {
@@ -32,13 +30,11 @@ public class GitImpactUtils {
   /**
    * Creates a tree iterator for the specified Git reference (branch, tag, or commit).
    *
-   * <p>
-   * This utility method is used to prepare a {@link CanonicalTreeParser} that represents the state
-   * of the repository at the specified ref, so that it can be used as input for JGit diff
+   * <p>This utility method is used to prepare a {@link CanonicalTreeParser} that represents the
+   * state of the repository at the specified ref, so that it can be used as input for JGit diff
    * operations such as comparing two branches or commits.
    *
-   * <p>
-   * For example, to compare the changes between the <code>develop</code> branch and the current
+   * <p>For example, to compare the changes between the <code>develop</code> branch and the current
    * branch (<code>HEAD</code>), use:
    *
    * <pre>
@@ -53,9 +49,7 @@ public class GitImpactUtils {
    * @throws IOException if an error occurs while accessing the repository or resolving the ref
    */
   public static AbstractTreeIterator getTreeIterator(
-      @NonNull final Repository repository,
-      @NonNull final String ref)
-      throws IOException {
+      @NonNull final Repository repository, @NonNull final String ref) throws IOException {
     log.debug("Create tree iterator for {}", ref);
 
     ObjectId id = repository.resolve(ref);
@@ -76,32 +70,32 @@ public class GitImpactUtils {
    * Returns a combined list of distinct {@link DiffEntry} objects representing all changed files in
    * a Git repository, including both committed and uncommitted changes.
    *
-   * <p>
-   * This method performs two types of diff operations:
+   * <p>This method performs two types of diff operations:
    *
    * <ul>
-   * <li><b>Uncommitted changes</b>: Lists all changes in the working directory and index (staged
-   * and unstaged) compared to the current HEAD.
-   * <li><b>Committed changes</b>: Lists all changes between the specified {@code baseRef} and
-   * {@code targetRef} in the provided configuration, typically representing the difference between
-   * two branches or commits.
+   *   <li><b>Uncommitted changes</b>: Lists all changes in the working directory and index (staged
+   *       and unstaged) compared to the current HEAD.
+   *   <li><b>Committed changes</b>: Lists all changes between the specified {@code baseRef} and
+   *       {@code targetRef} in the provided configuration, typically representing the difference
+   *       between two branches or commits.
    * </ul>
    *
-   * <p>
-   * The resulting list is deduplicated by file path, so that each changed file appears only once.
+   * <p>The resulting list is deduplicated by file path, so that each changed file appears only
+   * once.
    *
    * @param gitRepoPath the path to the root of the Git repository
    * @param config the configuration specifying {@code baseRef} and {@code targetRef} to compare
    * @return a list of unique {@link DiffEntry} objects representing all changed files, including
-   *         both committed and uncommitted changes; returns an empty list if the repository cannot
-   *         be accessed or an error occurs
+   *     both committed and uncommitted changes; returns an empty list if the repository cannot be
+   *     accessed or an error occurs
    */
   public static List<DiffEntry> getDiffEntries(
-      @NonNull final Path gitRepoPath,
-      @NonNull final ImpactCheckerConfig config) {
+      @NonNull final Path gitRepoPath, @NonNull final ImpactCheckerConfig config) {
     log.debug("gitRepoPath: {}", gitRepoPath);
     try (final Git git = Git.open(gitRepoPath.toFile())) {
-      log.debug("Running git diff for base-ref {} and target-ref {}", config.getBaseRef(),
+      log.debug(
+          "Running git diff for base-ref {} and target-ref {}",
+          config.getBaseRef(),
           config.getTargetRef());
 
       // 1. Uncommitted changes (working tree vs HEAD)
@@ -109,9 +103,11 @@ public class GitImpactUtils {
 
       // 2. Committed changes (targetRef vs baseRef)
       List<DiffEntry> committed =
-          git.diff().setOldTree(getTreeIterator(git.getRepository(), config.getBaseRef()))
+          git.diff()
+              .setOldTree(getTreeIterator(git.getRepository(), config.getBaseRef()))
               .setNewTree(getTreeIterator(git.getRepository(), config.getTargetRef()))
-              .setShowNameAndStatusOnly(true).call();
+              .setShowNameAndStatusOnly(true)
+              .call();
 
       // 3. Combine and deduplicate by file path (e.g., newPath)
       Set<String> seen = new HashSet<>();

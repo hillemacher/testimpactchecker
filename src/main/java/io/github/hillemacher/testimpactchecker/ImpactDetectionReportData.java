@@ -12,5 +12,4 @@ import java.util.Set;
  */
 public record ImpactDetectionReportData(
     Map<Path, Set<String>> relevantTestsWithCauses,
-    Map<String, Set<String>> impactedTypeToCauses) {
-}
+    Map<String, Set<String>> impactedTypeToCauses) {}

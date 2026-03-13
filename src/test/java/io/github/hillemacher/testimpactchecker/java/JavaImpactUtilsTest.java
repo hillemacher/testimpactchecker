@@ -27,9 +27,7 @@ import org.mockito.MockedStatic;
 import org.mockito.Mockito;
 import org.mockito.junit.jupiter.MockitoExtension;
 
-/**
- * Tests for Java impact analysis utilities.
- */
+/** Tests for Java impact analysis utilities. */
 @ExtendWith(MockitoExtension.class)
 class JavaImpactUtilsTest {
 
@@ -40,8 +38,7 @@ class JavaImpactUtilsTest {
 
   private JavaParser javaParser = new JavaParser();
 
-  @TempDir
-  Path tempDir;
+  @TempDir Path tempDir;
 
   @BeforeEach
   void setUp() {
@@ -50,9 +47,7 @@ class JavaImpactUtilsTest {
     javaParser = new JavaParser(parserConfiguration);
   }
 
-  /**
-   * Verifies implemented interfaces are discovered for changed classes.
-   */
+  /** Verifies implemented interfaces are discovered for changed classes. */
   @Test
   void testFindImplementedInterfaces() throws IOException {
     final ImpactCheckerConfig impactCheckerTestConfig =
@@ -68,9 +63,7 @@ class JavaImpactUtilsTest {
     assertThat(implementedInterfaces).isEqualTo(Map.of(changedClassPath, Set.of("InterfaceJSF")));
   }
 
-  /**
-   * Ensures changed class paths are filtered to main Java sources only.
-   */
+  /** Ensures changed class paths are filtered to main Java sources only. */
   @Test
   void testFindChangedClassPaths() throws IOException {
     DiffEntry diffEntryMain = mock();
@@ -99,9 +92,7 @@ class JavaImpactUtilsTest {
     }
   }
 
-  /**
-   * Confirms relevant tests are detected based on annotations and references.
-   */
+  /** Confirms relevant tests are detected based on annotations and references. */
   @Test
   void testFindRelevantTests() throws IOException {
     final Path changedClassPath = Paths.get("foo", "baa", "src", "main", "java", "ClassJSF.java");
@@ -114,15 +105,16 @@ class JavaImpactUtilsTest {
         loadImpactCheckerConfig(this.testConfigPath);
     JavaImpactUtils javaImpactUtils = new JavaImpactUtils(javaParser, impactCheckerTestConfig);
 
-    final Set<Path> relevantTests = javaImpactUtils.findRelevantTests(List.of(changedClassPath),
-        implementedInterfaces, testDirs);
-    assertThat(relevantTests).containsOnly(
-        Paths.get(testRepoRootPath.toString(), "foo", "src", "main", "test", "TestClassJSF.java"));
+    final Set<Path> relevantTests =
+        javaImpactUtils.findRelevantTests(
+            List.of(changedClassPath), implementedInterfaces, testDirs);
+    assertThat(relevantTests)
+        .containsOnly(
+            Paths.get(
+                testRepoRootPath.toString(), "foo", "src", "main", "test", "TestClassJSF.java"));
   }
 
-  /**
-   * Confirms relevant tests include changed class causes.
-   */
+  /** Confirms relevant tests include changed class causes. */
   @Test
   void testFindRelevantTestsWithCauses() throws IOException {
     final Path changedClassPath = Paths.get("foo", "baa", "src", "main", "java", "ClassJSF.java");
@@ -136,17 +128,18 @@ class JavaImpactUtilsTest {
     final JavaImpactUtils javaImpactUtils =
         new JavaImpactUtils(javaParser, impactCheckerTestConfig);
 
-    final Map<Path, Set<String>> relevantTestsWithCauses = javaImpactUtils.findRelevantTestsWithCauses(
-        List.of(changedClassPath), implementedInterfaces, testDirs);
+    final Map<Path, Set<String>> relevantTestsWithCauses =
+        javaImpactUtils.findRelevantTestsWithCauses(
+            List.of(changedClassPath), implementedInterfaces, testDirs);
 
-    assertThat(relevantTestsWithCauses).containsOnlyKeys(
-        Paths.get(testRepoRootPath.toString(), "foo", "src", "main", "test", "TestClassJSF.java"));
+    assertThat(relevantTestsWithCauses)
+        .containsOnlyKeys(
+            Paths.get(
+                testRepoRootPath.toString(), "foo", "src", "main", "test", "TestClassJSF.java"));
     assertThat(relevantTestsWithCauses.values()).containsExactly(Set.of("ClassJSF"));
   }
 
-  /**
-   * Ensures interface references report changed class names as causes.
-   */
+  /** Ensures interface references report changed class names as causes. */
   @Test
   void testFindRelevantTestsWithCausesForInterfaceReference() throws IOException {
     final ImpactCheckerConfig impactCheckerTestConfig =
@@ -158,7 +151,9 @@ class JavaImpactUtilsTest {
     final Path testDir = tempDir.resolve(Paths.get("module", "src", "test", "java"));
     final Path testFile = testDir.resolve("InterfaceOnlyReferenceTest.java");
 
-    writeTestFile(testFile, """
+    writeTestFile(
+        testFile,
+        """
         import org.springframework.test.context.ContextConfiguration;
         @ContextConfiguration
         class InterfaceOnlyReferenceTest {
@@ -166,16 +161,17 @@ class JavaImpactUtilsTest {
         }
         """);
 
-    final Map<Path, Set<String>> relevantTestsWithCauses = javaImpactUtils.findRelevantTestsWithCauses(
-        Set.of(changedClassPath), Map.of(changedClassPath, Set.of("InterfaceJSF")), List.of(testDir));
+    final Map<Path, Set<String>> relevantTestsWithCauses =
+        javaImpactUtils.findRelevantTestsWithCauses(
+            Set.of(changedClassPath),
+            Map.of(changedClassPath, Set.of("InterfaceJSF")),
+            List.of(testDir));
 
     assertThat(relevantTestsWithCauses).containsOnlyKeys(testFile);
     assertThat(relevantTestsWithCauses.get(testFile)).containsExactly("ClassJSF");
   }
 
-  /**
-   * Confirms tests without required annotations are ignored.
-   */
+  /** Confirms tests without required annotations are ignored. */
   @Test
   void testFindRelevantTestsIgnoresMissingAnnotation() throws IOException {
     final ImpactCheckerConfig impactCheckerTestConfig =
@@ -187,7 +183,9 @@ class JavaImpactUtilsTest {
     final Path testDir = tempDir.resolve(Paths.get("module", "src", "test", "java"));
     final Path testFile = testDir.resolve("NoAnnotationTest.java");
 
-    writeTestFile(testFile, """
+    writeTestFile(
+        testFile,
+        """
         import org.junit.jupiter.api.Test;
         class NoAnnotationTest {
                 private FooService fooService;
@@ -201,9 +199,7 @@ class JavaImpactUtilsTest {
     assertThat(relevantTests).isEmpty();
   }
 
-  /**
-   * Ensures tests are excluded when the changed class is only mocked.
-   */
+  /** Ensures tests are excluded when the changed class is only mocked. */
   @Test
   void testFindRelevantTestsExcludesOnlyMockedAndReferencedClass() throws IOException {
     final ImpactCheckerConfig impactCheckerTestConfig =
@@ -215,7 +211,9 @@ class JavaImpactUtilsTest {
     final Path testDir = tempDir.resolve(Paths.get("module", "src", "test", "java"));
     final Path testFile = testDir.resolve("MockedAndReferencedTest.java");
 
-    writeTestFile(testFile, """
+    writeTestFile(
+        testFile,
+        """
         import org.junit.jupiter.api.Test;
         import org.springframework.test.context.ContextConfiguration;
         class MockedAndReferencedTest {

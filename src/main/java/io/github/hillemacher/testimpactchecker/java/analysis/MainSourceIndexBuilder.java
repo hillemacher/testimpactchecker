@@ -27,11 +27,13 @@ public class MainSourceIndexBuilder {
    * Builds forward and reverse simple-name dependency indexes for main source types.
    *
    * <p>The builder parses each Java type in discovered main-source directories and records:
+   *
    * <ul>
-   * <li>forward dependencies: owner type -&gt; referenced types</li>
-   * <li>reverse dependencies: referenced type -&gt; dependent owner types</li>
-   * <li>type definitions: type name -&gt; declaring file paths</li>
+   *   <li>forward dependencies: owner type -&gt; referenced types
+   *   <li>reverse dependencies: referenced type -&gt; dependent owner types
+   *   <li>type definitions: type name -&gt; declaring file paths
    * </ul>
+   *
    * The resulting index is consumed by transitive propagation and diagnostics.
    *
    * @param mainJavaDirs directories containing main Java source files
@@ -45,7 +47,9 @@ public class MainSourceIndexBuilder {
     for (final Path mainJavaDir : mainJavaDirs) {
       for (final Path javaFile : getAllJavaFiles(mainJavaDir)) {
         final ParseResult<CompilationUnit> parseResult = parseJavaSourceFile(javaFile);
-        if (parseResult == null || !parseResult.isSuccessful() || parseResult.getResult().isEmpty()) {
+        if (parseResult == null
+            || !parseResult.isSuccessful()
+            || parseResult.getResult().isEmpty()) {
           continue;
         }
 
@@ -57,17 +61,24 @@ public class MainSourceIndexBuilder {
         }
 
         final String ownerType = ownerDecl.getNameAsString();
-        typeDefinitionIndex.computeIfAbsent(ownerType, key -> new HashSet<>()).add(javaFile.toString());
+        typeDefinitionIndex
+            .computeIfAbsent(ownerType, key -> new HashSet<>())
+            .add(javaFile.toString());
 
-        final Set<String> referencedTypes = compilationUnit.findAll(ClassOrInterfaceType.class).stream()
-            .map(ClassOrInterfaceType::getNameAsString)
-            .filter(type -> !ownerType.equals(type))
-            .collect(java.util.stream.Collectors.toSet());
+        final Set<String> referencedTypes =
+            compilationUnit.findAll(ClassOrInterfaceType.class).stream()
+                .map(ClassOrInterfaceType::getNameAsString)
+                .filter(type -> !ownerType.equals(type))
+                .collect(java.util.stream.Collectors.toSet());
 
-        forwardDependencies.computeIfAbsent(ownerType, key -> new HashSet<>()).addAll(referencedTypes);
-        referencedTypes.forEach(referencedType -> reverseDependencies
-            .computeIfAbsent(referencedType, key -> new HashSet<>())
-            .add(ownerType));
+        forwardDependencies
+            .computeIfAbsent(ownerType, key -> new HashSet<>())
+            .addAll(referencedTypes);
+        referencedTypes.forEach(
+            referencedType ->
+                reverseDependencies
+                    .computeIfAbsent(referencedType, key -> new HashSet<>())
+                    .add(ownerType));
       }
     }
 

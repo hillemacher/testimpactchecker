@@ -39,12 +39,14 @@ public class ImpactAnalysisEngine {
    * Runs end-to-end impact analysis and returns impacted tests with root changed-class causes.
    *
    * <p>This is the primary orchestration entry point for repository analysis. It performs:
+   *
    * <ol>
-   * <li>changed-class discovery from Git</li>
-   * <li>seed extraction from changed classes and implemented interfaces</li>
-   * <li>direct or transitive propagation, depending on configuration</li>
-   * <li>test-file parsing and final cause evaluation with mock filtering</li>
+   *   <li>changed-class discovery from Git
+   *   <li>seed extraction from changed classes and implemented interfaces
+   *   <li>direct or transitive propagation, depending on configuration
+   *   <li>test-file parsing and final cause evaluation with mock filtering
    * </ol>
+   *
    * The method intentionally returns an empty map when no changed classes are found.
    *
    * @param repositoryPath repository root path
@@ -53,9 +55,7 @@ public class ImpactAnalysisEngine {
    * @return map from impacted test file to root changed-class causes
    */
   public Map<Path, Set<String>> analyzeImpactWithCauses(
-      final Path repositoryPath,
-      final Set<Path> mainJavaDirs,
-      final Set<Path> testJavaDirs) {
+      final Path repositoryPath, final Set<Path> mainJavaDirs, final Set<Path> testJavaDirs) {
     return analyzeImpact(repositoryPath, mainJavaDirs, testJavaDirs).relevantTestsWithCauses();
   }
 
@@ -68,32 +68,32 @@ public class ImpactAnalysisEngine {
    * @return full analysis result for report generation and diagnostics
    */
   public ImpactAnalysisResult analyzeImpact(
-      final Path repositoryPath,
-      final Set<Path> mainJavaDirs,
-      final Set<Path> testJavaDirs) {
-    final Set<Path> changedClassPaths = changedClassLocator.findChangedClassPaths(mainJavaDirs, repositoryPath);
+      final Path repositoryPath, final Set<Path> mainJavaDirs, final Set<Path> testJavaDirs) {
+    final Set<Path> changedClassPaths =
+        changedClassLocator.findChangedClassPaths(mainJavaDirs, repositoryPath);
     if (changedClassPaths.isEmpty()) {
       return new ImpactAnalysisResult(Map.of(), new ImpactPropagationResult(Map.of(), Map.of()));
     }
 
-    final ChangedTypeSeedData changedTypeSeedData = changedTypeSeedResolver.resolve(changedClassPaths,
-        repositoryPath);
-    final ImpactPropagationResult propagationResult = buildPropagationResult(changedTypeSeedData,
-        mainJavaDirs);
+    final ChangedTypeSeedData changedTypeSeedData =
+        changedTypeSeedResolver.resolve(changedClassPaths, repositoryPath);
+    final ImpactPropagationResult propagationResult =
+        buildPropagationResult(changedTypeSeedData, mainJavaDirs);
 
-    final Map<Path, Set<String>> relevantTestsWithCauses = analyzeTests(
-        propagationResult,
-        changedTypeSeedData.changedClassNames(),
-        testJavaDirs,
-        resolveMockPolicy());
+    final Map<Path, Set<String>> relevantTestsWithCauses =
+        analyzeTests(
+            propagationResult,
+            changedTypeSeedData.changedClassNames(),
+            testJavaDirs,
+            resolveMockPolicy());
     return new ImpactAnalysisResult(relevantTestsWithCauses, propagationResult);
   }
 
   /**
    * Evaluates tests using the direct seed model without transitive propagation.
    *
-   * <p>This method is used to preserve existing behavior and enables direct-mode execution
-   * from higher-level callers without building the main-source dependency graph.
+   * <p>This method is used to preserve existing behavior and enables direct-mode execution from
+   * higher-level callers without building the main-source dependency graph.
    *
    * @param changedFilePaths changed class file paths relative to repository root
    * @param implementedInterfaces map of changed class path to implemented interfaces
@@ -111,20 +111,30 @@ public class ImpactAnalysisEngine {
     final Map<String, Set<String>> impactedTypeToCauses = new HashMap<>();
     final Map<String, Map<String, Set<List<String>>>> witnessPathsByTypeAndCause = new HashMap<>();
 
-    changedFilePaths.forEach(changedFilePath -> {
-      final String changedClass = toSimpleClassName(changedFilePath);
-      impactedTypeToCauses.computeIfAbsent(changedClass, key -> new HashSet<>()).add(changedClass);
-      witnessPathsByTypeAndCause.computeIfAbsent(changedClass, key -> new HashMap<>())
-          .computeIfAbsent(changedClass, key -> new HashSet<>())
-          .add(List.of(changedClass));
+    changedFilePaths.forEach(
+        changedFilePath -> {
+          final String changedClass = toSimpleClassName(changedFilePath);
+          impactedTypeToCauses
+              .computeIfAbsent(changedClass, key -> new HashSet<>())
+              .add(changedClass);
+          witnessPathsByTypeAndCause
+              .computeIfAbsent(changedClass, key -> new HashMap<>())
+              .computeIfAbsent(changedClass, key -> new HashSet<>())
+              .add(List.of(changedClass));
 
-      implementedInterfaces.getOrDefault(changedFilePath, Set.of()).forEach(interfaceName -> {
-        impactedTypeToCauses.computeIfAbsent(interfaceName, key -> new HashSet<>()).add(changedClass);
-        witnessPathsByTypeAndCause.computeIfAbsent(interfaceName, key -> new HashMap<>())
-            .computeIfAbsent(changedClass, key -> new HashSet<>())
-            .add(List.of(interfaceName));
-      });
-    });
+          implementedInterfaces
+              .getOrDefault(changedFilePath, Set.of())
+              .forEach(
+                  interfaceName -> {
+                    impactedTypeToCauses
+                        .computeIfAbsent(interfaceName, key -> new HashSet<>())
+                        .add(changedClass);
+                    witnessPathsByTypeAndCause
+                        .computeIfAbsent(interfaceName, key -> new HashMap<>())
+                        .computeIfAbsent(changedClass, key -> new HashSet<>())
+                        .add(List.of(interfaceName));
+                  });
+        });
 
     return analyzeTests(
         new ImpactPropagationResult(impactedTypeToCauses, witnessPathsByTypeAndCause),
@@ -134,8 +144,7 @@ public class ImpactAnalysisEngine {
   }
 
   private ImpactPropagationResult buildPropagationResult(
-      final ChangedTypeSeedData changedTypeSeedData,
-      final Set<Path> mainJavaDirs) {
+      final ChangedTypeSeedData changedTypeSeedData, final Set<Path> mainJavaDirs) {
     if (impactCheckerConfig.getAnalysisMode() == AnalysisMode.DIRECT) {
       return buildDirectPropagationResult(changedTypeSeedData.seedTypeToChangedClasses());
     }
@@ -152,12 +161,17 @@ public class ImpactAnalysisEngine {
     final Map<String, Set<String>> impactedTypeToCauses = new HashMap<>();
     final Map<String, Map<String, Set<List<String>>>> witnessPathsByTypeAndCause = new HashMap<>();
 
-    seedTypeToChangedClasses.forEach((seedType, causes) -> {
-      impactedTypeToCauses.computeIfAbsent(seedType, key -> new HashSet<>()).addAll(causes);
-      final Map<String, Set<List<String>>> causeToPaths =
-          witnessPathsByTypeAndCause.computeIfAbsent(seedType, key -> new HashMap<>());
-      causes.forEach(cause -> causeToPaths.computeIfAbsent(cause, key -> new HashSet<>()).add(List.of(seedType)));
-    });
+    seedTypeToChangedClasses.forEach(
+        (seedType, causes) -> {
+          impactedTypeToCauses.computeIfAbsent(seedType, key -> new HashSet<>()).addAll(causes);
+          final Map<String, Set<List<String>>> causeToPaths =
+              witnessPathsByTypeAndCause.computeIfAbsent(seedType, key -> new HashMap<>());
+          causes.forEach(
+              cause ->
+                  causeToPaths
+                      .computeIfAbsent(cause, key -> new HashSet<>())
+                      .add(List.of(seedType)));
+        });
 
     return new ImpactPropagationResult(impactedTypeToCauses, witnessPathsByTypeAndCause);
   }
@@ -184,13 +198,14 @@ public class ImpactAnalysisEngine {
       }
 
       final Set<String> mockedTypes = testMockUsageExtractor.extractMockedTypes(compilationUnit);
-      final Set<String> causesForTest = testImpactEvaluator.evaluateCauses(
-          testTypeUsage.referencedTypes(),
-          mockedTypes,
-          changedClassNames,
-          propagationResult.impactedTypeToCauses(),
-          propagationResult.witnessPathsByTypeAndCause(),
-          mockPolicy);
+      final Set<String> causesForTest =
+          testImpactEvaluator.evaluateCauses(
+              testTypeUsage.referencedTypes(),
+              mockedTypes,
+              changedClassNames,
+              propagationResult.impactedTypeToCauses(),
+              propagationResult.witnessPathsByTypeAndCause(),
+              mockPolicy);
 
       if (!causesForTest.isEmpty()) {
         relevantTestsWithCauses.put(testFilePath, causesForTest);

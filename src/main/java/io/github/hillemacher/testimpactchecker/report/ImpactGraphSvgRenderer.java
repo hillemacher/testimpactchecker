@@ -8,9 +8,7 @@ import java.util.Locale;
 import java.util.Map;
 import lombok.NonNull;
 
-/**
- * Renders {@link ImpactGraph} as deterministic inline SVG with layered lanes.
- */
+/** Renders {@link ImpactGraph} as deterministic inline SVG with layered lanes. */
 public class ImpactGraphSvgRenderer {
 
   private static final int WIDTH = 1120;
@@ -39,18 +37,23 @@ public class ImpactGraphSvgRenderer {
     final List<ImpactGraphNode> typeNodes = nodesByKind(graph, ImpactGraphNodeKind.TYPE);
     final List<ImpactGraphNode> testNodes = nodesByKind(graph, ImpactGraphNodeKind.TEST);
 
-    final int laneHeight = maxLaneNodeCount(causeNodes, typeNodes, testNodes)
-        * (NODE_HEIGHT + NODE_SPACING);
+    final int laneHeight =
+        maxLaneNodeCount(causeNodes, typeNodes, testNodes) * (NODE_HEIGHT + NODE_SPACING);
     final int height = Math.max(260, LANE_START_Y + laneHeight + 28);
 
     final Map<String, NodeBox> boxesByNodeId = buildNodeBoxes(causeNodes, typeNodes, testNodes);
 
     final StringBuilder svg = new StringBuilder();
     svg.append("<svg class=\"impact-graph-svg\" viewBox=\"0 0 ")
-        .append(WIDTH).append(' ').append(height)
+        .append(WIDTH)
+        .append(' ')
+        .append(height)
         .append("\" role=\"img\" aria-label=\"Impact graph\">\n");
-    svg.append("  <rect x=\"0\" y=\"0\" width=\"").append(WIDTH).append("\" height=\"")
-        .append(height).append("\" fill=\"#f9fbfc\"/>\n");
+    svg.append("  <rect x=\"0\" y=\"0\" width=\"")
+        .append(WIDTH)
+        .append("\" height=\"")
+        .append(height)
+        .append("\" fill=\"#f9fbfc\"/>\n");
 
     renderLaneHeaders(svg);
     renderEdges(graph, boxesByNodeId, svg);
@@ -62,7 +65,8 @@ public class ImpactGraphSvgRenderer {
     return svg.toString();
   }
 
-  private List<ImpactGraphNode> nodesByKind(final ImpactGraph graph, final ImpactGraphNodeKind kind) {
+  private List<ImpactGraphNode> nodesByKind(
+      final ImpactGraph graph, final ImpactGraphNodeKind kind) {
     return graph.nodes().stream().filter(node -> node.kind() == kind).toList();
   }
 
@@ -102,11 +106,10 @@ public class ImpactGraphSvgRenderer {
   }
 
   private void renderEdges(
-      final ImpactGraph graph,
-      final Map<String, NodeBox> boxesByNodeId,
-      final StringBuilder svg) {
+      final ImpactGraph graph, final Map<String, NodeBox> boxesByNodeId, final StringBuilder svg) {
     final List<ImpactGraphEdge> sortedEdges = new ArrayList<>(graph.edges());
-    sortedEdges.sort(Comparator.comparing(ImpactGraphEdge::fromNodeId).thenComparing(ImpactGraphEdge::toNodeId));
+    sortedEdges.sort(
+        Comparator.comparing(ImpactGraphEdge::fromNodeId).thenComparing(ImpactGraphEdge::toNodeId));
 
     for (final ImpactGraphEdge edge : sortedEdges) {
       final NodeBox fromBox = boxesByNodeId.get(edge.fromNodeId());
@@ -187,6 +190,5 @@ public class ImpactGraphSvgRenderer {
         .replace("'", "&#39;");
   }
 
-  private record NodeBox(int x, int y) {
-  }
+  private record NodeBox(int x, int y) {}
 }

@@ -14,5 +14,4 @@ import java.util.Set;
 public record ChangedTypeSeedData(
     Map<Path, Set<String>> implementedInterfacesByClass,
     Map<String, Set<String>> seedTypeToChangedClasses,
-    Set<String> changedClassNames) {
-}
+    Set<String> changedClassNames) {}

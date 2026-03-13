@@ -11,6 +11,4 @@ import java.util.Set;
  * @param propagationResult propagated impacted types and witness paths used by evaluation
  */
 public record ImpactAnalysisResult(
-    Map<Path, Set<String>> relevantTestsWithCauses,
-    ImpactPropagationResult propagationResult) {
-}
+    Map<Path, Set<String>> relevantTestsWithCauses, ImpactPropagationResult propagationResult) {}

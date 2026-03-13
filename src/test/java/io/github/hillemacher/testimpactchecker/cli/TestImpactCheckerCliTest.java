@@ -25,24 +25,20 @@ import org.junit.jupiter.api.io.TempDir;
 import org.mockito.MockedConstruction;
 import org.mockito.Mockito;
 
-/**
- * Tests CLI argument handling, console output stability, and HTML report output behavior.
- */
+/** Tests CLI argument handling, console output stability, and HTML report output behavior. */
 class TestImpactCheckerCliTest {
 
   private static final Path CLI_PREVIEW_REPORT_PATH =
       Path.of("build", "test-artifacts", "cli-preview", "impact-report.html");
   private static final String SIMPLE_LOGGER_DEFAULT_LEVEL =
       "org.slf4j.simpleLogger.defaultLogLevel";
-  private static final String SIMPLE_LOGGER_SHOW_DATE_TIME =
-      "org.slf4j.simpleLogger.showDateTime";
+  private static final String SIMPLE_LOGGER_SHOW_DATE_TIME = "org.slf4j.simpleLogger.showDateTime";
   private static final String SIMPLE_LOGGER_DATE_TIME_FORMAT =
       "org.slf4j.simpleLogger.dateTimeFormat";
   private static final String SIMPLE_LOGGER_SHOW_THREAD_NAME =
       "org.slf4j.simpleLogger.showThreadName";
 
-  @TempDir
-  Path tempDir;
+  @TempDir Path tempDir;
 
   private final Map<String, String> originalSystemProperties = new HashMap<>();
 
@@ -66,15 +62,14 @@ class TestImpactCheckerCliTest {
     originalSystemProperties.clear();
   }
 
-  /**
-   * Verifies impacted tests are printed grouped by test path and sorted deterministically.
-   */
+  /** Verifies impacted tests are printed grouped by test path and sorted deterministically. */
   @Test
   void testMainPrintsGroupedImpactCauses() throws IOException {
     final Path projectPath = tempDir.resolve("project-default");
     final Path configPath = writeConfig(projectPath);
-    final String output = executeCliAndCaptureStdout(projectPath,
-        new String[] {"-p", projectPath.toString(), "-c", configPath.toString()});
+    final String output =
+        executeCliAndCaptureStdout(
+            projectPath, new String[] {"-p", projectPath.toString(), "-c", configPath.toString()});
 
     assertThat(output).contains("Relevant tests and impact causes:");
     assertThat(output).contains("module/src/test/java/a/TestA.java");
@@ -86,16 +81,14 @@ class TestImpactCheckerCliTest {
     assertThat(indexA).isLessThan(indexB);
   }
 
-  /**
-   * Ensures default execution configures INFO-level simple logger properties.
-   */
+  /** Ensures default execution configures INFO-level simple logger properties. */
   @Test
   void testMainSetsInfoLogLevelByDefault() throws IOException {
     final Path projectPath = tempDir.resolve("project-info");
     final Path configPath = writeConfig(projectPath);
 
-    executeCliAndCaptureStdout(projectPath,
-        new String[] {"-p", projectPath.toString(), "-c", configPath.toString()});
+    executeCliAndCaptureStdout(
+        projectPath, new String[] {"-p", projectPath.toString(), "-c", configPath.toString()});
 
     assertThat(System.getProperty(SIMPLE_LOGGER_DEFAULT_LEVEL)).isEqualTo("info");
     assertThat(System.getProperty(SIMPLE_LOGGER_SHOW_DATE_TIME)).isEqualTo("true");
@@ -104,48 +97,53 @@ class TestImpactCheckerCliTest {
     assertThat(System.getProperty(SIMPLE_LOGGER_SHOW_THREAD_NAME)).isEqualTo("false");
   }
 
-  /**
-   * Ensures the debug flag switches logging configuration to DEBUG level.
-   */
+  /** Ensures the debug flag switches logging configuration to DEBUG level. */
   @Test
   void testMainSetsDebugLogLevelWhenDebugFlagPresent() throws IOException {
     final Path projectPath = tempDir.resolve("project-debug");
     final Path configPath = writeConfig(projectPath);
 
-    executeCliAndCaptureStdout(projectPath,
+    executeCliAndCaptureStdout(
+        projectPath,
         new String[] {"-p", projectPath.toString(), "-c", configPath.toString(), "--debug"});
 
     assertThat(System.getProperty(SIMPLE_LOGGER_DEFAULT_LEVEL)).isEqualTo("debug");
   }
 
-  /**
-   * Verifies enabling debug logging does not change the structured stdout report content.
-   */
+  /** Verifies enabling debug logging does not change the structured stdout report content. */
   @Test
   void testMainDebugFlagKeepsReportOutputStable() throws IOException {
     final Path projectPath = tempDir.resolve("project-stable");
     final Path configPath = writeConfig(projectPath);
 
-    final String defaultOutput = executeCliAndCaptureStdout(projectPath,
-        new String[] {"-p", projectPath.toString(), "-c", configPath.toString()});
-    final String debugOutput = executeCliAndCaptureStdout(projectPath,
-        new String[] {"-p", projectPath.toString(), "-c", configPath.toString(), "--debug"});
+    final String defaultOutput =
+        executeCliAndCaptureStdout(
+            projectPath, new String[] {"-p", projectPath.toString(), "-c", configPath.toString()});
+    final String debugOutput =
+        executeCliAndCaptureStdout(
+            projectPath,
+            new String[] {"-p", projectPath.toString(), "-c", configPath.toString(), "--debug"});
 
     assertThat(debugOutput).isEqualTo(defaultOutput);
   }
 
-  /**
-   * Confirms HTML output is written to an explicit file path passed via CLI.
-   */
+  /** Confirms HTML output is written to an explicit file path passed via CLI. */
   @Test
   void testMainWritesHtmlReportToExplicitFilePath() throws IOException {
     final Path projectPath = tempDir.resolve("project-html-file");
     final Path configPath = writeConfig(projectPath);
     final Path htmlPath = projectPath.resolve("reports/custom-report.html");
 
-    executeCliAndCaptureStdout(projectPath,
-        new String[] {"-p", projectPath.toString(), "-c", configPath.toString(), "--html-report",
-            "reports/custom-report.html"});
+    executeCliAndCaptureStdout(
+        projectPath,
+        new String[] {
+          "-p",
+          projectPath.toString(),
+          "-c",
+          configPath.toString(),
+          "--html-report",
+          "reports/custom-report.html"
+        });
 
     assertThat(htmlPath).exists();
     final String html = Files.readString(htmlPath, StandardCharsets.UTF_8);
@@ -154,50 +152,50 @@ class TestImpactCheckerCliTest {
     assertThat(html).contains("module/src/test/java/a/TestA.java");
   }
 
-  /**
-   * Confirms directory targets resolve to the default report file name.
-   */
+  /** Confirms directory targets resolve to the default report file name. */
   @Test
   void testMainWritesHtmlReportToDirectoryPathWithDefaultFileName() throws IOException {
     final Path projectPath = tempDir.resolve("project-html-dir");
     final Path configPath = writeConfig(projectPath);
     final Path htmlPath = projectPath.resolve("reports/impact-report.html");
 
-    executeCliAndCaptureStdout(projectPath,
-        new String[] {"-p", projectPath.toString(), "-c", configPath.toString(), "--html-report",
-            "reports"});
+    executeCliAndCaptureStdout(
+        projectPath,
+        new String[] {
+          "-p", projectPath.toString(), "-c", configPath.toString(), "--html-report", "reports"
+        });
 
     assertThat(htmlPath).exists();
   }
 
-  /**
-   * Verifies adding HTML output does not alter the existing stdout report format.
-   */
+  /** Verifies adding HTML output does not alter the existing stdout report format. */
   @Test
   void testMainHtmlFlagKeepsConsoleReportStable() throws IOException {
     final Path projectPath = tempDir.resolve("project-html-stable");
     final Path configPath = writeConfig(projectPath);
 
-    final String defaultOutput = executeCliAndCaptureStdout(projectPath,
-        new String[] {"-p", projectPath.toString(), "-c", configPath.toString()});
-    final String htmlOutput = executeCliAndCaptureStdout(projectPath,
-        new String[] {"-p", projectPath.toString(), "-c", configPath.toString(), "--html-report",
-            "reports"});
+    final String defaultOutput =
+        executeCliAndCaptureStdout(
+            projectPath, new String[] {"-p", projectPath.toString(), "-c", configPath.toString()});
+    final String htmlOutput =
+        executeCliAndCaptureStdout(
+            projectPath,
+            new String[] {
+              "-p", projectPath.toString(), "-c", configPath.toString(), "--html-report", "reports"
+            });
 
     assertThat(htmlOutput).isEqualTo(defaultOutput);
   }
 
-  /**
-   * Verifies HTML output is produced from config when the CLI report flag is absent.
-   */
+  /** Verifies HTML output is produced from config when the CLI report flag is absent. */
   @Test
   void testMainWritesHtmlReportFromConfigWhenCliFlagIsMissing() throws IOException {
     final Path projectPath = tempDir.resolve("project-config-html");
     final Path configPath = writeConfig(projectPath, "reports/from-config");
     final Path htmlPath = projectPath.resolve("reports/from-config/impact-report.html");
 
-    executeCliAndCaptureStdout(projectPath,
-        new String[] {"-p", projectPath.toString(), "-c", configPath.toString()});
+    executeCliAndCaptureStdout(
+        projectPath, new String[] {"-p", projectPath.toString(), "-c", configPath.toString()});
 
     assertThat(htmlPath).exists();
     final String html = Files.readString(htmlPath, StandardCharsets.UTF_8);
@@ -217,9 +215,7 @@ class TestImpactCheckerCliTest {
     assertThat(html).contains(configPath.toAbsolutePath().normalize().toString());
   }
 
-  /**
-   * Ensures CLI report path overrides the optional report path configured in JSON.
-   */
+  /** Ensures CLI report path overrides the optional report path configured in JSON. */
   @Test
   void testMainCliHtmlFlagOverridesConfigHtmlPath() throws IOException {
     final Path projectPath = tempDir.resolve("project-config-override");
@@ -227,16 +223,24 @@ class TestImpactCheckerCliTest {
     final Path configHtmlPath = projectPath.resolve("reports/from-config/impact-report.html");
     final Path cliHtmlPath = projectPath.resolve("reports/from-cli/impact-report.html");
 
-    executeCliAndCaptureStdout(projectPath,
-        new String[] {"-p", projectPath.toString(), "-c", configPath.toString(), "--html-report",
-            "reports/from-cli"});
+    executeCliAndCaptureStdout(
+        projectPath,
+        new String[] {
+          "-p",
+          projectPath.toString(),
+          "-c",
+          configPath.toString(),
+          "--html-report",
+          "reports/from-cli"
+        });
 
     assertThat(cliHtmlPath).exists();
     assertThat(configHtmlPath).doesNotExist();
   }
 
   /**
-   * Creates a deterministic preview report under build/ so the generated HTML can be inspected manually.
+   * Creates a deterministic preview report under build/ so the generated HTML can be inspected
+   * manually.
    */
   @Test
   void testMainWritesPreviewHtmlReportToBuildDirectory() throws IOException {
@@ -247,9 +251,16 @@ class TestImpactCheckerCliTest {
     Files.createDirectories(previewReportPath.getParent());
     Files.deleteIfExists(previewReportPath);
 
-    executeCliAndCaptureStdout(projectPath,
-        new String[] {"-p", projectPath.toString(), "-c", configPath.toString(), "--html-report",
-            previewReportPath.toString()});
+    executeCliAndCaptureStdout(
+        projectPath,
+        new String[] {
+          "-p",
+          projectPath.toString(),
+          "-c",
+          configPath.toString(),
+          "--html-report",
+          previewReportPath.toString()
+        });
 
     assertThat(previewReportPath).exists();
     final String html = Files.readString(previewReportPath, StandardCharsets.UTF_8);
@@ -264,19 +275,22 @@ class TestImpactCheckerCliTest {
     final Map<Path, Set<String>> impacts = new LinkedHashMap<>();
     impacts.put(testB, Set.of("BClass"));
     impacts.put(testA, Set.of("CClass", "AClass"));
-    final Map<String, Set<String>> impactedTypeToCauses = Map.of(
-        "AClass", Set.of("AClass"),
-        "CClass", Set.of("CClass"),
-        "FacadeType", Set.of("AClass", "CClass"));
+    final Map<String, Set<String>> impactedTypeToCauses =
+        Map.of(
+            "AClass", Set.of("AClass"),
+            "CClass", Set.of("CClass"),
+            "FacadeType", Set.of("AClass", "CClass"));
 
     final ByteArrayOutputStream stdout = new ByteArrayOutputStream();
     final PrintStream originalOut = System.out;
     System.setOut(new PrintStream(stdout, true, StandardCharsets.UTF_8));
     try (MockedConstruction<TestImpactChecker> construction =
-        Mockito.mockConstruction(TestImpactChecker.class, (mock, context) -> {
-          when(mock.detectImpactReportData(any(Path.class), any(ImpactCheckerConfig.class)))
-              .thenReturn(new ImpactDetectionReportData(impacts, impactedTypeToCauses));
-        })) {
+        Mockito.mockConstruction(
+            TestImpactChecker.class,
+            (mock, context) -> {
+              when(mock.detectImpactReportData(any(Path.class), any(ImpactCheckerConfig.class)))
+                  .thenReturn(new ImpactDetectionReportData(impacts, impactedTypeToCauses));
+            })) {
       TestImpactCheckerCli.main(args);
       assertThat(construction.constructed()).hasSize(1);
       return stdout.toString(StandardCharsets.UTF_8);
@@ -293,9 +307,13 @@ class TestImpactCheckerCliTest {
       throws IOException {
     Files.createDirectories(projectPath);
     final Path configPath = tempDir.resolve(projectPath.getFileName() + "-config.json");
-    final String optionalHtmlPath = htmlReportOutputPath == null ? "" :
-        ",\n  \"htmlReportOutputPath\": \"" + htmlReportOutputPath + "\"";
-    Files.writeString(configPath, """
+    final String optionalHtmlPath =
+        htmlReportOutputPath == null
+            ? ""
+            : ",\n  \"htmlReportOutputPath\": \"" + htmlReportOutputPath + "\"";
+    Files.writeString(
+        configPath,
+        """
         {
           "annotations": ["ContextConfiguration", "IntegrationTest"],
           "baseRef": "develop",
@@ -304,7 +322,9 @@ class TestImpactCheckerCliTest {
           "maxPropagationDepth": 3,
           "mockPolicy": "FILTER_MOCKED_PATHS"%s
         }
-        """.formatted(optionalHtmlPath), StandardCharsets.UTF_8);
+        """
+            .formatted(optionalHtmlPath),
+        StandardCharsets.UTF_8);
     return configPath;
   }
 

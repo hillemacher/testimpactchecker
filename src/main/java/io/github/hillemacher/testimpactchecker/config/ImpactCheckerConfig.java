@@ -50,8 +50,8 @@ public class ImpactCheckerConfig {
   /**
    * Returns configured mock policy with a safe default.
    *
-   * <p>This getter is null-safe so legacy configurations continue to behave as
-   * {@link MockPolicy#CURRENT}.
+   * <p>This getter is null-safe so legacy configurations continue to behave as {@link
+   * MockPolicy#CURRENT}.
    *
    * @return configured mock policy, or {@link MockPolicy#CURRENT} when unset
    */

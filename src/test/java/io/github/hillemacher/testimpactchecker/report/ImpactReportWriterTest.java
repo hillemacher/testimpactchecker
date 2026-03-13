@@ -10,17 +10,12 @@ import java.nio.file.Path;
 import org.junit.jupiter.api.Test;
 import org.junit.jupiter.api.io.TempDir;
 
-/**
- * Tests report output-path resolution and filesystem write behavior.
- */
+/** Tests report output-path resolution and filesystem write behavior. */
 class ImpactReportWriterTest {
 
-  @TempDir
-  Path tempDir;
+  @TempDir Path tempDir;
 
-  /**
-   * Verifies paths ending with .html are treated as explicit file targets.
-   */
+  /** Verifies paths ending with .html are treated as explicit file targets. */
   @Test
   void testResolveOutputPathTreatsHtmlSuffixAsFilePath() {
     final ImpactReportWriter writer = new ImpactReportWriter();
@@ -30,9 +25,7 @@ class ImpactReportWriterTest {
     assertThat(resolved).isEqualTo(tempDir.resolve("reports/custom-report.html"));
   }
 
-  /**
-   * Verifies directory-like paths append the default report file name.
-   */
+  /** Verifies directory-like paths append the default report file name. */
   @Test
   void testResolveOutputPathTreatsDirectoryAsDefaultFileName() {
     final ImpactReportWriter writer = new ImpactReportWriter();
@@ -42,9 +35,7 @@ class ImpactReportWriterTest {
     assertThat(resolved).isEqualTo(tempDir.resolve("reports/impact-report.html"));
   }
 
-  /**
-   * Verifies missing parent directories are created before writing report content.
-   */
+  /** Verifies missing parent directories are created before writing report content. */
   @Test
   void testWriteReportCreatesMissingDirectories() throws IOException {
     final ImpactReportWriter writer = new ImpactReportWriter();
@@ -56,9 +47,7 @@ class ImpactReportWriterTest {
     assertThat(Files.readString(outputPath, StandardCharsets.UTF_8)).isEqualTo("<html>ok</html>");
   }
 
-  /**
-   * Verifies write failures propagate when the parent path cannot be used as a directory.
-   */
+  /** Verifies write failures propagate when the parent path cannot be used as a directory. */
   @Test
   void testWriteReportFailsWhenParentIsAFile() throws IOException {
     final ImpactReportWriter writer = new ImpactReportWriter();

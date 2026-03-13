@@ -21,32 +21,30 @@ import org.junit.jupiter.api.io.TempDir;
 import org.mockito.MockedStatic;
 import org.mockito.Mockito;
 
-/**
- * Tests transitive impact propagation depth and mock-path filtering behavior.
- */
+/** Tests transitive impact propagation depth and mock-path filtering behavior. */
 class TransitiveImpactCheckerTest {
 
-  @TempDir
-  Path tempDir;
+  @TempDir Path tempDir;
 
-  /**
-   * Verifies a downstream test is included when transitive propagation reaches it within depth.
-   */
+  /** Verifies a downstream test is included when transitive propagation reaches it within depth. */
   @Test
   void testTransitiveImpactIncludesDownstreamTestAtDepthTwo() throws IOException {
     final Path repoRoot = createProjectSkeleton(tempDir);
-    final Path testFile = writeDownstreamTest(repoRoot, "DownstreamIntegrationTest", "private D service;");
+    final Path testFile =
+        writeDownstreamTest(repoRoot, "DownstreamIntegrationTest", "private D service;");
     writeMainChain(repoRoot);
 
     final ImpactCheckerConfig config = createTransitiveConfig(2, MockPolicy.FILTER_MOCKED_PATHS);
     final DiffEntry changedA = mockDiffEntry("module/src/main/java/A.java");
 
-    try (MockedStatic<GitImpactUtils> gitImpactUtilsMockedStatic = Mockito.mockStatic(GitImpactUtils.class)) {
+    try (MockedStatic<GitImpactUtils> gitImpactUtilsMockedStatic =
+        Mockito.mockStatic(GitImpactUtils.class)) {
       gitImpactUtilsMockedStatic
           .when(() -> GitImpactUtils.getDiffEntries(repoRoot, config))
           .thenReturn(List.of(changedA));
 
-      final Map<Path, Set<String>> impacted = new TestImpactChecker().detectImpactWithCauses(repoRoot, config);
+      final Map<Path, Set<String>> impacted =
+          new TestImpactChecker().detectImpactWithCauses(repoRoot, config);
 
       assertThat(impacted).containsOnlyKeys(testFile);
       assertThat(impacted.get(testFile)).containsExactly("A");
@@ -65,20 +63,20 @@ class TransitiveImpactCheckerTest {
     final ImpactCheckerConfig config = createTransitiveConfig(1, MockPolicy.FILTER_MOCKED_PATHS);
     final DiffEntry changedA = mockDiffEntry("module/src/main/java/A.java");
 
-    try (MockedStatic<GitImpactUtils> gitImpactUtilsMockedStatic = Mockito.mockStatic(GitImpactUtils.class)) {
+    try (MockedStatic<GitImpactUtils> gitImpactUtilsMockedStatic =
+        Mockito.mockStatic(GitImpactUtils.class)) {
       gitImpactUtilsMockedStatic
           .when(() -> GitImpactUtils.getDiffEntries(repoRoot, config))
           .thenReturn(List.of(changedA));
 
-      final Map<Path, Set<String>> impacted = new TestImpactChecker().detectImpactWithCauses(repoRoot, config);
+      final Map<Path, Set<String>> impacted =
+          new TestImpactChecker().detectImpactWithCauses(repoRoot, config);
 
       assertThat(impacted).isEmpty();
     }
   }
 
-  /**
-   * Verifies a cause is excluded when every witness path is blocked by mocked intermediates.
-   */
+  /** Verifies a cause is excluded when every witness path is blocked by mocked intermediates. */
   @Test
   void testTransitiveImpactExcludesFullyMockedPaths() throws IOException {
     final Path repoRoot = createProjectSkeleton(tempDir);
@@ -88,35 +86,39 @@ class TransitiveImpactCheckerTest {
     final ImpactCheckerConfig config = createTransitiveConfig(2, MockPolicy.FILTER_MOCKED_PATHS);
     final DiffEntry changedA = mockDiffEntry("module/src/main/java/A.java");
 
-    try (MockedStatic<GitImpactUtils> gitImpactUtilsMockedStatic = Mockito.mockStatic(GitImpactUtils.class)) {
+    try (MockedStatic<GitImpactUtils> gitImpactUtilsMockedStatic =
+        Mockito.mockStatic(GitImpactUtils.class)) {
       gitImpactUtilsMockedStatic
           .when(() -> GitImpactUtils.getDiffEntries(repoRoot, config))
           .thenReturn(List.of(changedA));
 
-      final Map<Path, Set<String>> impacted = new TestImpactChecker().detectImpactWithCauses(repoRoot, config);
+      final Map<Path, Set<String>> impacted =
+          new TestImpactChecker().detectImpactWithCauses(repoRoot, config);
 
       assertThat(impacted).isEmpty();
     }
   }
 
-  /**
-   * Verifies unrelated mocks do not suppress a valid transitive cause.
-   */
+  /** Verifies unrelated mocks do not suppress a valid transitive cause. */
   @Test
   void testTransitiveImpactKeepsCauseWhenMockIsUnrelated() throws IOException {
     final Path repoRoot = createProjectSkeleton(tempDir);
-    final Path testFile = writeDownstreamTest(repoRoot, "UnrelatedMockTest", "private D service; @Mock private X mockedX;");
+    final Path testFile =
+        writeDownstreamTest(
+            repoRoot, "UnrelatedMockTest", "private D service; @Mock private X mockedX;");
     writeMainChain(repoRoot);
 
     final ImpactCheckerConfig config = createTransitiveConfig(2, MockPolicy.FILTER_MOCKED_PATHS);
     final DiffEntry changedA = mockDiffEntry("module/src/main/java/A.java");
 
-    try (MockedStatic<GitImpactUtils> gitImpactUtilsMockedStatic = Mockito.mockStatic(GitImpactUtils.class)) {
+    try (MockedStatic<GitImpactUtils> gitImpactUtilsMockedStatic =
+        Mockito.mockStatic(GitImpactUtils.class)) {
       gitImpactUtilsMockedStatic
           .when(() -> GitImpactUtils.getDiffEntries(repoRoot, config))
           .thenReturn(List.of(changedA));
 
-      final Map<Path, Set<String>> impacted = new TestImpactChecker().detectImpactWithCauses(repoRoot, config);
+      final Map<Path, Set<String>> impacted =
+          new TestImpactChecker().detectImpactWithCauses(repoRoot, config);
 
       assertThat(impacted).containsOnlyKeys(testFile);
       assertThat(impacted.get(testFile)).containsExactly("A");
@@ -133,23 +135,28 @@ class TransitiveImpactCheckerTest {
   private void writeMainChain(final Path repoRoot) throws IOException {
     writeJava(repoRoot.resolve("module/src/main/java/A.java"), "public class A implements B {}");
     writeJava(repoRoot.resolve("module/src/main/java/B.java"), "public interface B {}");
-    writeJava(repoRoot.resolve("module/src/main/java/C.java"), "public class C { private B dependency; }");
-    writeJava(repoRoot.resolve("module/src/main/java/D.java"), "public class D { private C dependency; }");
+    writeJava(
+        repoRoot.resolve("module/src/main/java/C.java"),
+        "public class C { private B dependency; }");
+    writeJava(
+        repoRoot.resolve("module/src/main/java/D.java"),
+        "public class D { private C dependency; }");
     writeJava(repoRoot.resolve("module/src/main/java/X.java"), "public class X {}");
   }
 
-  private Path writeDownstreamTest(
-      final Path repoRoot,
-      final String className,
-      final String body) throws IOException {
+  private Path writeDownstreamTest(final Path repoRoot, final String className, final String body)
+      throws IOException {
     final Path file = repoRoot.resolve("module/src/test/java/" + className + ".java");
-    writeJava(file, """
+    writeJava(
+        file,
+        """
         import org.mockito.Mock;
         @ContextConfiguration
         class %s {
           %s
         }
-        """.formatted(className, body));
+        """
+            .formatted(className, body));
     return file;
   }
 

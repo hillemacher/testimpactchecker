@@ -17,10 +17,10 @@ public class TestTypeUsageExtractor {
   /**
    * Extracts annotation eligibility and referenced type names from a parsed test file.
    *
-   * <p>The extractor keeps only the information needed for impact evaluation:
-   * whether the test class has one of the configured annotations and which type names are
-   * referenced in the compilation unit. Tests without a class declaration are treated as
-   * ineligible and return an empty usage model.
+   * <p>The extractor keeps only the information needed for impact evaluation: whether the test
+   * class has one of the configured annotations and which type names are referenced in the
+   * compilation unit. Tests without a class declaration are treated as ineligible and return an
+   * empty usage model.
    *
    * @param compilationUnit parsed test compilation unit
    * @return extracted test type usage data used by impact evaluation
@@ -32,13 +32,15 @@ public class TestTypeUsageExtractor {
       return new TestTypeUsage(false, Set.of());
     }
 
-    final boolean hasRequiredAnnotation = classDecl.getAnnotations().stream()
-        .map(AnnotationExpr::getNameAsString)
-        .anyMatch(impactCheckerConfig.getAnnotations()::contains);
+    final boolean hasRequiredAnnotation =
+        classDecl.getAnnotations().stream()
+            .map(AnnotationExpr::getNameAsString)
+            .anyMatch(impactCheckerConfig.getAnnotations()::contains);
 
-    final Set<String> referencedTypeNames = compilationUnit.findAll(ClassOrInterfaceType.class).stream()
-        .map(ClassOrInterfaceType::getNameAsString)
-        .collect(Collectors.toSet());
+    final Set<String> referencedTypeNames =
+        compilationUnit.findAll(ClassOrInterfaceType.class).stream()
+            .map(ClassOrInterfaceType::getNameAsString)
+            .collect(Collectors.toSet());
 
     return new TestTypeUsage(hasRequiredAnnotation, referencedTypeNames);
   }

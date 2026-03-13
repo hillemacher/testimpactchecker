@@ -6,9 +6,7 @@ import java.nio.file.Files;
 import java.nio.file.Path;
 import lombok.NonNull;
 
-/**
- * Resolves report output locations and writes static report files.
- */
+/** Resolves report output locations and writes static report files. */
 public class ImpactReportWriter {
 
   public static final String DEFAULT_REPORT_FILE_NAME = "impact-report.html";
@@ -25,12 +23,12 @@ public class ImpactReportWriter {
    * @throws NullPointerException if any parameter is {@code null}
    */
   public Path resolveOutputPath(
-      @NonNull final Path projectPath,
-      @NonNull final String configuredOutputPath) {
+      @NonNull final Path projectPath, @NonNull final String configuredOutputPath) {
     final Path configuredPath = Path.of(configuredOutputPath.trim());
-    final Path absolutePath = configuredPath.isAbsolute()
-        ? configuredPath
-        : projectPath.toAbsolutePath().normalize().resolve(configuredPath).normalize();
+    final Path absolutePath =
+        configuredPath.isAbsolute()
+            ? configuredPath
+            : projectPath.toAbsolutePath().normalize().resolve(configuredPath).normalize();
 
     // Path resolution rule: .html means direct file target, anything else means directory target.
     if (absolutePath.toString().endsWith(".html")) {

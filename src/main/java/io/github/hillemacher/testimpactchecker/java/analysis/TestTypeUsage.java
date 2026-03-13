@@ -8,5 +8,4 @@ import java.util.Set;
  * @param hasRequiredAnnotation whether the test has any configured impact annotation
  * @param referencedTypes simple type names referenced by the test
  */
-public record TestTypeUsage(boolean hasRequiredAnnotation, Set<String> referencedTypes) {
-}
+public record TestTypeUsage(boolean hasRequiredAnnotation, Set<String> referencedTypes) {}

@@ -13,9 +13,12 @@ public class TestImpactEvaluator {
    *
    * <p>The evaluator first resolves candidate causes from referenced impacted types, then applies
    * configured mock filtering:
+   *
    * <ul>
-   * <li>{@link io.github.hillemacher.testimpactchecker.config.MockPolicy#CURRENT}: removes directly mocked changed classes</li>
-   * <li>{@link io.github.hillemacher.testimpactchecker.config.MockPolicy#FILTER_MOCKED_PATHS}: keeps a cause only if at least one witness path remains unblocked by mocked types</li>
+   *   <li>{@link io.github.hillemacher.testimpactchecker.config.MockPolicy#CURRENT}: removes
+   *       directly mocked changed classes
+   *   <li>{@link io.github.hillemacher.testimpactchecker.config.MockPolicy#FILTER_MOCKED_PATHS}:
+   *       keeps a cause only if at least one witness path remains unblocked by mocked types
    * </ul>
    *
    * @param referencedTypes types referenced by the test source
@@ -51,7 +54,8 @@ public class TestImpactEvaluator {
     }
 
     if (mockPolicy == MockPolicy.FILTER_MOCKED_PATHS) {
-      return filterCausesByWitnessPaths(referencedTypes, mockedTypes, causes, witnessPathsByTypeAndCause);
+      return filterCausesByWitnessPaths(
+          referencedTypes, mockedTypes, causes, witnessPathsByTypeAndCause);
     }
 
     return causes;
@@ -67,15 +71,16 @@ public class TestImpactEvaluator {
     for (final String cause : causes) {
       boolean hasUnblockedPath = false;
       for (final String referencedType : referencedTypes) {
-        final Set<List<String>> witnessPaths = witnessPathsByTypeAndCause
-            .getOrDefault(referencedType, Map.of())
-            .getOrDefault(cause, Set.of());
+        final Set<List<String>> witnessPaths =
+            witnessPathsByTypeAndCause
+                .getOrDefault(referencedType, Map.of())
+                .getOrDefault(cause, Set.of());
         if (witnessPaths.isEmpty()) {
           continue;
         }
 
-        final boolean anyUnblocked = witnessPaths.stream()
-            .anyMatch(path -> path.stream().noneMatch(mockedTypes::contains));
+        final boolean anyUnblocked =
+            witnessPaths.stream().anyMatch(path -> path.stream().noneMatch(mockedTypes::contains));
         if (anyUnblocked) {
           hasUnblockedPath = true;
           break;
