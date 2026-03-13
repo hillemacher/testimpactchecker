@@ -12,5 +12,4 @@ import java.util.Set;
  */
 public record ImpactPropagationResult(
     Map<String, Set<String>> impactedTypeToCauses,
-    Map<String, Map<String, Set<List<String>>>> witnessPathsByTypeAndCause) {
-}
+    Map<String, Map<String, Set<List<String>>>> witnessPathsByTypeAndCause) {}

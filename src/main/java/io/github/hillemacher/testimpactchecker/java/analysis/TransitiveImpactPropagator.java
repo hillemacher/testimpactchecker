@@ -15,12 +15,14 @@ public class TransitiveImpactPropagator {
    * Propagates changed-class causes through reverse dependencies up to {@code maxDepth}.
    *
    * <p>Traversal is breadth-first per seed/cause pair. Each visited type records:
+   *
    * <ul>
-   * <li>its root changed-class causes</li>
-   * <li>witness paths from impacted type back to seed type</li>
+   *   <li>its root changed-class causes
+   *   <li>witness paths from impacted type back to seed type
    * </ul>
-   * Witness paths are later used by mock-aware filtering to suppress impacts that are fully
-   * blocked by mocked intermediate types in a test.
+   *
+   * Witness paths are later used by mock-aware filtering to suppress impacts that are fully blocked
+   * by mocked intermediate types in a test.
    *
    * @param seedTypeToChangedClasses map of seed type to root changed-class causes
    * @param reverseDependencies reverse dependency graph (referenced type -> dependent types)
@@ -58,7 +60,8 @@ public class TransitiveImpactPropagator {
             continue;
           }
 
-          for (final String dependentType : reverseDependencies.getOrDefault(currentType, Set.of())) {
+          for (final String dependentType :
+              reverseDependencies.getOrDefault(currentType, Set.of())) {
             final int nextDepth = node.depth() + 1;
             final Integer bestDepth = bestDepthByType.get(dependentType);
             if (bestDepth != null && bestDepth < nextDepth) {
@@ -83,6 +86,6 @@ public class TransitiveImpactPropagator {
     return List.copyOf(path);
   }
 
-  private record TraversalNode(@NonNull String type, int depth, @NonNull List<String> pathFromCurrentToSeed) {
-  }
+  private record TraversalNode(
+      @NonNull String type, int depth, @NonNull List<String> pathFromCurrentToSeed) {}
 }

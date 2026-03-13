@@ -11,14 +11,9 @@ import lombok.NonNull;
  * @param score ranking score used for deterministic ordering and capping
  */
 public record ImpactGraphNode(
-    @NonNull String id,
-    @NonNull String label,
-    @NonNull ImpactGraphNodeKind kind,
-    int score) {
+    @NonNull String id, @NonNull String label, @NonNull ImpactGraphNodeKind kind, int score) {
 
-  /**
-   * Validates graph node fields.
-   */
+  /** Validates graph node fields. */
   public ImpactGraphNode {
     if (score < 0) {
       throw new IllegalArgumentException("score must be >= 0");

@@ -28,25 +28,29 @@ public class ChangedTypeSeedResolver {
    * Builds the initial seed model required by impact propagation.
    *
    * <p>For each changed class this method collects:
+   *
    * <ul>
-   * <li>the changed class simple name as a direct seed</li>
-   * <li>all directly implemented interface simple names as additional seeds</li>
+   *   <li>the changed class simple name as a direct seed
+   *   <li>all directly implemented interface simple names as additional seeds
    * </ul>
-   * The method also computes the set of changed-class root causes used later for reporting.
-   * This keeps seed extraction logic isolated from traversal and test-evaluation concerns.
+   *
+   * The method also computes the set of changed-class root causes used later for reporting. This
+   * keeps seed extraction logic isolated from traversal and test-evaluation concerns.
    *
    * @param changedClassPaths changed class file paths relative to repository root
    * @param repoRoot repository root path used to resolve changed class files
    * @return aggregated seed data for direct and transitive impact analysis stages
    */
-  public ChangedTypeSeedData resolve(final Collection<Path> changedClassPaths, final Path repoRoot) {
-    final Map<Path, Set<String>> implementedInterfaces = findImplementedInterfaces(changedClassPaths, repoRoot);
-    final Map<String, Set<String>> seedTypeToChangedClasses = buildSeedTypeToChangedClasses(
-        changedClassPaths, implementedInterfaces);
-    final Set<String> changedClassNames = changedClassPaths.stream()
-        .map(this::toSimpleClassName)
-        .collect(Collectors.toSet());
-    return new ChangedTypeSeedData(implementedInterfaces, seedTypeToChangedClasses, changedClassNames);
+  public ChangedTypeSeedData resolve(
+      final Collection<Path> changedClassPaths, final Path repoRoot) {
+    final Map<Path, Set<String>> implementedInterfaces =
+        findImplementedInterfaces(changedClassPaths, repoRoot);
+    final Map<String, Set<String>> seedTypeToChangedClasses =
+        buildSeedTypeToChangedClasses(changedClassPaths, implementedInterfaces);
+    final Set<String> changedClassNames =
+        changedClassPaths.stream().map(this::toSimpleClassName).collect(Collectors.toSet());
+    return new ChangedTypeSeedData(
+        implementedInterfaces, seedTypeToChangedClasses, changedClassNames);
   }
 
   /**
@@ -77,9 +81,10 @@ public class ChangedTypeSeedResolver {
         continue;
       }
 
-      final Set<String> interfaces = classDecl.getImplementedTypes().stream()
-          .map(ClassOrInterfaceType::getNameAsString)
-          .collect(Collectors.toSet());
+      final Set<String> interfaces =
+          classDecl.getImplementedTypes().stream()
+              .map(ClassOrInterfaceType::getNameAsString)
+              .collect(Collectors.toSet());
       if (!interfaces.isEmpty()) {
         implementedInterfaces.put(classPath, interfaces);
       }
@@ -94,11 +99,16 @@ public class ChangedTypeSeedResolver {
     changedFilePaths.forEach(
         changedFilePath -> {
           final String changedClassName = toSimpleClassName(changedFilePath);
-          seedTypeToChangedClasses.computeIfAbsent(changedClassName, key -> new HashSet<>())
+          seedTypeToChangedClasses
+              .computeIfAbsent(changedClassName, key -> new HashSet<>())
               .add(changedClassName);
-          implementedInterfaces.getOrDefault(changedFilePath, Set.of()).forEach(
-              implementedInterface -> seedTypeToChangedClasses.computeIfAbsent(
-                  implementedInterface, key -> new HashSet<>()).add(changedClassName));
+          implementedInterfaces
+              .getOrDefault(changedFilePath, Set.of())
+              .forEach(
+                  implementedInterface ->
+                      seedTypeToChangedClasses
+                          .computeIfAbsent(implementedInterface, key -> new HashSet<>())
+                          .add(changedClassName));
         });
     return seedTypeToChangedClasses;
   }

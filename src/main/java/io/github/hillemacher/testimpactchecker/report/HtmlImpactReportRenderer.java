@@ -7,9 +7,7 @@ import java.time.format.DateTimeFormatter;
 import java.util.Locale;
 import lombok.NonNull;
 
-/**
- * Renders an {@link ImpactReport} as a static dependency-free HTML page.
- */
+/** Renders an {@link ImpactReport} as a static dependency-free HTML page. */
 public class HtmlImpactReportRenderer {
 
   private static final DateTimeFormatter UTC_DATE_TIME_FORMATTER =
@@ -17,8 +15,7 @@ public class HtmlImpactReportRenderer {
           .withLocale(Locale.ROOT)
           .withZone(ZoneOffset.UTC);
   private static final DateTimeFormatter LOCAL_DATE_TIME_FORMATTER =
-      DateTimeFormatter.ofPattern("yyyy-MM-dd HH:mm:ss z")
-          .withLocale(Locale.ROOT);
+      DateTimeFormatter.ofPattern("yyyy-MM-dd HH:mm:ss z").withLocale(Locale.ROOT);
   private final ImpactGraphSvgRenderer impactGraphSvgRenderer = new ImpactGraphSvgRenderer();
 
   /**
@@ -76,28 +73,36 @@ public class HtmlImpactReportRenderer {
     html.append("      <h2>Run metadata</h2>\n");
     html.append("      <dl class=\"metadata-grid\">\n");
     appendMetadataItem(html, "Project", metadata.projectPath().toString());
-    appendMetadataItem(html, "Generated", formatGeneratedTimestamp(
-        metadata.generatedAtUtc(), metadata.executionZoneId()));
+    appendMetadataItem(
+        html,
+        "Generated",
+        formatGeneratedTimestamp(metadata.generatedAtUtc(), metadata.executionZoneId()));
     appendMetadataItem(html, "Execution zone", metadata.executionZoneId().getId());
     appendMetadataItem(html, "Base ref", metadata.baseRef().orElse("\u2014"));
     appendMetadataItem(html, "Target ref", metadata.targetRef().orElse("\u2014"));
-    appendMetadataItem(html, "Annotations",
+    appendMetadataItem(
+        html,
+        "Annotations",
         metadata.annotations().isEmpty() ? "\u2014" : String.join(", ", metadata.annotations()));
     appendMetadataItem(html, "Analysis mode", metadata.analysisMode().name());
-    appendMetadataItem(html, "Max propagation depth", Integer.toString(metadata.maxPropagationDepth()));
+    appendMetadataItem(
+        html, "Max propagation depth", Integer.toString(metadata.maxPropagationDepth()));
     appendMetadataItem(html, "Mock policy", metadata.mockPolicy().name());
-    metadata.configPath()
+    metadata
+        .configPath()
         .ifPresent(configPath -> appendMetadataItem(html, "Config path", configPath.toString()));
     html.append("      </dl>\n");
     html.append("    </section>\n");
   }
 
-  private void appendMetadataItem(final StringBuilder html, final String label, final String value) {
+  private void appendMetadataItem(
+      final StringBuilder html, final String label, final String value) {
     html.append("        <dt>").append(escapeHtml(label)).append("</dt>\n");
     html.append("        <dd>").append(escapeHtml(value)).append("</dd>\n");
   }
 
-  private String formatGeneratedTimestamp(final Instant generatedAtUtc, final ZoneId executionZoneId) {
+  private String formatGeneratedTimestamp(
+      final Instant generatedAtUtc, final ZoneId executionZoneId) {
     return LOCAL_DATE_TIME_FORMATTER.withZone(executionZoneId).format(generatedAtUtc)
         + " ("
         + UTC_DATE_TIME_FORMATTER.format(generatedAtUtc)
@@ -117,13 +122,16 @@ public class HtmlImpactReportRenderer {
     html.append("      <table>\n");
     html.append("        <thead><tr><th>Test path</th><th>Causes</th></tr></thead>\n");
     html.append("        <tbody>\n");
-    report.impactedTests().forEach(entry -> {
-      html.append("          <tr><td>")
-          .append(escapeHtml(entry.relativeTestPath().toString()))
-          .append("</td><td>")
-          .append(escapeHtml(String.join(", ", entry.causes())))
-          .append("</td></tr>\n");
-    });
+    report
+        .impactedTests()
+        .forEach(
+            entry -> {
+              html.append("          <tr><td>")
+                  .append(escapeHtml(entry.relativeTestPath().toString()))
+                  .append("</td><td>")
+                  .append(escapeHtml(String.join(", ", entry.causes())))
+                  .append("</td></tr>\n");
+            });
     html.append("        </tbody>\n");
     html.append("      </table>\n");
     html.append("      </div>\n");
@@ -143,13 +151,16 @@ public class HtmlImpactReportRenderer {
     html.append("      <table>\n");
     html.append("        <thead><tr><th>Cause</th><th>Impacted tests</th></tr></thead>\n");
     html.append("        <tbody>\n");
-    report.topCauses().forEach(cause -> {
-      html.append("          <tr><td>")
-          .append(escapeHtml(cause.cause()))
-          .append("</td><td>")
-          .append(cause.impactedTestCount())
-          .append("</td></tr>\n");
-    });
+    report
+        .topCauses()
+        .forEach(
+            cause -> {
+              html.append("          <tr><td>")
+                  .append(escapeHtml(cause.cause()))
+                  .append("</td><td>")
+                  .append(cause.impactedTestCount())
+                  .append("</td></tr>\n");
+            });
     html.append("        </tbody>\n");
     html.append("      </table>\n");
     html.append("      </div>\n");
@@ -163,7 +174,9 @@ public class HtmlImpactReportRenderer {
 
     html.append("    <section>\n");
     html.append("      <h2>Impact graph</h2>\n");
-    html.append("      <p class=\"meta\">Overview graph is simplified for readability. Use the per-cause graphs for full edge detail.</p>\n");
+    html.append(
+        "      <p class=\"meta\">Overview graph is simplified for readability. "
+            + "Use the per-cause graphs for full edge detail.</p>\n");
     html.append("      <p class=\"legend\">");
     html.append("<span class=\"legend-chip legend-cause\">Changed causes</span> ");
     html.append("<span class=\"legend-chip legend-type\">Impacted types</span> ");
@@ -419,8 +432,7 @@ public class HtmlImpactReportRenderer {
 
   private String escapeHtml(final String raw) {
     // Escape all user-controlled strings before injecting into HTML.
-    return raw
-        .replace("&", "&amp;")
+    return raw.replace("&", "&amp;")
         .replace("<", "&lt;")
         .replace(">", "&gt;")
         .replace("\"", "&quot;")

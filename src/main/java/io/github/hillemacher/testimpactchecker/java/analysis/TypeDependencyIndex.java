@@ -13,5 +13,4 @@ import java.util.Set;
 public record TypeDependencyIndex(
     Map<String, Set<String>> forwardDependencies,
     Map<String, Set<String>> reverseDependencies,
-    Map<String, Set<String>> typeDefinitionIndex) {
-}
+    Map<String, Set<String>> typeDefinitionIndex) {}
