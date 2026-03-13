@@ -49,6 +49,7 @@ foo/src/test/java/TestB.java
 
 When `--html-report` is set, the checker additionally writes a static HTML artifact that contains:
 
+- A run metadata section with the effective project path, Git refs, annotations, analysis settings, and config path
 - Summary cards (impacted tests, unique causes, average causes per test)
 - Impacted tests and their causes
 - Top causes sorted by impacted test count
@@ -63,6 +64,8 @@ Path behavior:
 CI recommendation:
 
 - Use `${project}/reports/impact-report.html` as your artifact path.
+- The report renders the generation timestamp in the executing machine's local timezone and includes the UTC timestamp in parentheses.
+- The execution zone shown in the report comes from the machine running the checker (`ZoneId.systemDefault()`), so local runs and CI may display different zones.
 - The graph is intentionally focused/capped for readability and deterministic CI artifacts.
 - Default caps for the graph are fixed in code (`12` causes, `28` impacted types, `40` tests, `80` total nodes).
 

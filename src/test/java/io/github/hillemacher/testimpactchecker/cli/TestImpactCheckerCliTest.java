@@ -198,6 +198,21 @@ class TestImpactCheckerCliTest {
         new String[] {"-p", projectPath.toString(), "-c", configPath.toString()});
 
     assertThat(htmlPath).exists();
+    final String html = Files.readString(htmlPath, StandardCharsets.UTF_8);
+    assertThat(html).contains("Run metadata");
+    assertThat(html).contains("Base ref");
+    assertThat(html).contains("develop");
+    assertThat(html).contains("Target ref");
+    assertThat(html).contains("HEAD");
+    assertThat(html).contains("Annotations");
+    assertThat(html).contains("ContextConfiguration, IntegrationTest");
+    assertThat(html).contains("Analysis mode");
+    assertThat(html).contains("TRANSITIVE");
+    assertThat(html).contains("Max propagation depth");
+    assertThat(html).contains(">3<");
+    assertThat(html).contains("Mock policy");
+    assertThat(html).contains("FILTER_MOCKED_PATHS");
+    assertThat(html).contains(configPath.toAbsolutePath().normalize().toString());
   }
 
   /**
@@ -257,9 +272,12 @@ class TestImpactCheckerCliTest {
         ",\n  \"htmlReportOutputPath\": \"" + htmlReportOutputPath + "\"";
     Files.writeString(configPath, """
         {
-          "annotations": ["ContextConfiguration"],
+          "annotations": ["ContextConfiguration", "IntegrationTest"],
           "baseRef": "develop",
-          "targetRef": "HEAD"%s
+          "targetRef": "HEAD",
+          "analysisMode": "TRANSITIVE",
+          "maxPropagationDepth": 3,
+          "mockPolicy": "FILTER_MOCKED_PATHS"%s
         }
         """.formatted(optionalHtmlPath), StandardCharsets.UTF_8);
     return configPath;

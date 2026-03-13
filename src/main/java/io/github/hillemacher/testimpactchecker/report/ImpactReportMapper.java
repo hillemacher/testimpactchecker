@@ -1,14 +1,17 @@
 package io.github.hillemacher.testimpactchecker.report;
 
+import io.github.hillemacher.testimpactchecker.config.ImpactCheckerConfig;
 import java.nio.file.Path;
 import java.time.Clock;
 import java.time.Instant;
+import java.time.ZoneId;
 import java.util.ArrayList;
 import java.util.Comparator;
 import java.util.HashMap;
 import java.util.HashSet;
 import java.util.List;
 import java.util.Map;
+import java.util.Optional;
 import java.util.Set;
 import lombok.NonNull;
 
@@ -46,7 +49,13 @@ public class ImpactReportMapper {
   public ImpactReport toImpactReport(
       @NonNull final Path projectPath,
       @NonNull final Map<Path, Set<String>> relevantTestsWithCauses) {
-    return toImpactReport(projectPath, relevantTestsWithCauses, Map.of());
+    return toImpactReport(
+        projectPath,
+        null,
+        new ImpactCheckerConfig(),
+        ZoneId.systemDefault(),
+        relevantTestsWithCauses,
+        Map.of());
   }
 
   /**
@@ -60,6 +69,36 @@ public class ImpactReportMapper {
    */
   public ImpactReport toImpactReport(
       @NonNull final Path projectPath,
+      @NonNull final Map<Path, Set<String>> relevantTestsWithCauses,
+      @NonNull final Map<String, Set<String>> impactedTypeToCauses) {
+    return toImpactReport(
+        projectPath,
+        null,
+        new ImpactCheckerConfig(),
+        ZoneId.systemDefault(),
+        relevantTestsWithCauses,
+        impactedTypeToCauses);
+  }
+
+  /**
+   * Builds an immutable report model from impacted tests, propagated impacted types, and resolved
+   * execution metadata.
+   *
+   * @param projectPath root path of the scanned project
+   * @param configPath path to the configuration file used for this run, or {@code null} when not
+   *     available
+   * @param impactCheckerConfig effective analysis configuration used for the run
+   * @param executionZoneId system timezone of the machine that generated the report
+   * @param relevantTestsWithCauses impacted tests keyed by absolute/normalized test path
+   * @param impactedTypeToCauses impacted type names mapped to changed-class causes
+   * @return deterministic report model for rendering
+   * @throws NullPointerException if any required parameter is {@code null}
+   */
+  public ImpactReport toImpactReport(
+      @NonNull final Path projectPath,
+      final Path configPath,
+      @NonNull final ImpactCheckerConfig impactCheckerConfig,
+      @NonNull final ZoneId executionZoneId,
       @NonNull final Map<Path, Set<String>> relevantTestsWithCauses,
       @NonNull final Map<String, Set<String>> impactedTypeToCauses) {
 
@@ -91,16 +130,53 @@ public class ImpactReportMapper {
         : impactedTests.stream().mapToInt(entry -> entry.causes().size()).average().orElse(0);
 
     final ImpactGraph impactGraph = buildImpactGraph(impactedTests, impactedTypeToCauses, causeCounts);
+    final ImpactReportMetadata metadata = buildMetadata(
+        normalizedProjectPath,
+        configPath,
+        impactCheckerConfig,
+        executionZoneId,
+        generatedAt);
 
     return new ImpactReport(
-        generatedAt,
-        normalizedProjectPath,
+        metadata,
         impactedTestsCount,
         uniqueCausesCount,
         averageCausesPerTest,
         impactedTests,
         topCauses,
         impactGraph);
+  }
+
+  private ImpactReportMetadata buildMetadata(
+      final Path projectPath,
+      final Path configPath,
+      final ImpactCheckerConfig impactCheckerConfig,
+      final ZoneId executionZoneId,
+      final Instant generatedAtUtc) {
+    final List<String> sortedAnnotations = Optional.ofNullable(impactCheckerConfig.getAnnotations())
+        .orElse(List.of())
+        .stream()
+        .sorted()
+        .toList();
+
+    return new ImpactReportMetadata(
+        projectPath,
+        generatedAtUtc,
+        executionZoneId,
+        toOptionalText(impactCheckerConfig.getBaseRef()),
+        toOptionalText(impactCheckerConfig.getTargetRef()),
+        sortedAnnotations,
+        impactCheckerConfig.getAnalysisMode(),
+        impactCheckerConfig.getMaxPropagationDepth(),
+        impactCheckerConfig.getMockPolicy(),
+        Optional.ofNullable(configPath));
+  }
+
+  private Optional<String> toOptionalText(final String value) {
+    if (value == null || value.isBlank()) {
+      return Optional.empty();
+    }
+    return Optional.of(value);
   }
 
   private Map<String, Integer> buildCauseCounts(final List<ImpactedTestEntry> impactedTests) {
