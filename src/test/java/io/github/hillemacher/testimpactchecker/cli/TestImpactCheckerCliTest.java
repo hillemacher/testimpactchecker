@@ -30,6 +30,8 @@ import org.mockito.Mockito;
  */
 class TestImpactCheckerCliTest {
 
+  private static final Path CLI_PREVIEW_REPORT_PATH =
+      Path.of("build", "test-artifacts", "cli-preview", "impact-report.html");
   private static final String SIMPLE_LOGGER_DEFAULT_LEVEL =
       "org.slf4j.simpleLogger.defaultLogLevel";
   private static final String SIMPLE_LOGGER_SHOW_DATE_TIME =
@@ -231,6 +233,29 @@ class TestImpactCheckerCliTest {
 
     assertThat(cliHtmlPath).exists();
     assertThat(configHtmlPath).doesNotExist();
+  }
+
+  /**
+   * Creates a deterministic preview report under build/ so the generated HTML can be inspected manually.
+   */
+  @Test
+  void testMainWritesPreviewHtmlReportToBuildDirectory() throws IOException {
+    final Path projectPath = tempDir.resolve("project-build-preview");
+    final Path configPath = writeConfig(projectPath);
+    final Path previewReportPath = CLI_PREVIEW_REPORT_PATH.toAbsolutePath().normalize();
+
+    Files.createDirectories(previewReportPath.getParent());
+    Files.deleteIfExists(previewReportPath);
+
+    executeCliAndCaptureStdout(projectPath,
+        new String[] {"-p", projectPath.toString(), "-c", configPath.toString(), "--html-report",
+            previewReportPath.toString()});
+
+    assertThat(previewReportPath).exists();
+    final String html = Files.readString(previewReportPath, StandardCharsets.UTF_8);
+    assertThat(html).contains("Test Impact Report");
+    assertThat(html).contains("Run metadata");
+    assertThat(html).contains("Impact graph");
   }
 
   private String executeCliAndCaptureStdout(final Path projectPath, final String[] args) {
