@@ -157,31 +157,63 @@ public class HtmlImpactReportRenderer {
   }
 
   private void renderImpactGraphSection(final ImpactReport report, final StringBuilder html) {
+    final ImpactGraphBundle graphBundle = report.graphBundle();
+    final ImpactGraph fullGraph = graphBundle.fullGraph();
+    final ImpactGraph overviewGraph = graphBundle.overviewGraph();
+
     html.append("    <section>\n");
     html.append("      <h2>Impact graph</h2>\n");
-    html.append("      <p class=\"meta\">Focused, capped graph (causes -> impacted types -> impacted tests)</p>\n");
+    html.append("      <p class=\"meta\">Overview graph is simplified for readability. Use the per-cause graphs for full edge detail.</p>\n");
     html.append("      <p class=\"legend\">");
     html.append("<span class=\"legend-chip legend-cause\">Changed causes</span> ");
     html.append("<span class=\"legend-chip legend-type\">Impacted types</span> ");
     html.append("<span class=\"legend-chip legend-test\">Impacted tests</span>");
     html.append("</p>\n");
 
-    final ImpactGraph impactGraph = report.impactGraph();
-    if (impactGraph.stats().isTruncated()) {
+    if (fullGraph.stats().isTruncated()) {
       html.append("      <p class=\"meta\">Showing ")
-          .append(impactGraph.stats().shownNodes())
+          .append(fullGraph.stats().shownNodes())
           .append("/")
-          .append(impactGraph.stats().totalNodes())
+          .append(fullGraph.stats().totalNodes())
           .append(" nodes and ")
-          .append(impactGraph.stats().shownEdges())
+          .append(fullGraph.stats().shownEdges())
           .append("/")
-          .append(impactGraph.stats().totalEdges())
+          .append(fullGraph.stats().totalEdges())
           .append(" edges.</p>\n");
     }
+    if (overviewGraph.stats().shownEdges() < overviewGraph.stats().totalEdges()) {
+      html.append("      <p class=\"meta\">Overview hides ")
+          .append(overviewGraph.stats().totalEdges() - overviewGraph.stats().shownEdges())
+          .append(" lower-signal edges to reduce clutter.</p>\n");
+    }
+    html.append("      <h3>Overview</h3>\n");
     html.append("      <div class=\"graph-wrapper\">\n");
-    html.append(impactGraphSvgRenderer.render(impactGraph));
+    html.append(impactGraphSvgRenderer.render(overviewGraph));
     html.append("      </div>\n");
+
+    if (!graphBundle.causeSections().isEmpty()) {
+      html.append("      <div class=\"cause-graph-sections\">\n");
+      html.append("        <h3>Per-cause detail</h3>\n");
+      graphBundle.causeSections().forEach(section -> renderCauseGraphSection(section, html));
+      html.append("      </div>\n");
+    }
     html.append("    </section>\n");
+  }
+
+  private void renderCauseGraphSection(final ImpactGraphSection section, final StringBuilder html) {
+    html.append("        <details class=\"cause-graph-details\">\n");
+    html.append("          <summary>")
+        .append(escapeHtml(section.cause()))
+        .append(" (")
+        .append(section.impactedTypeCount())
+        .append(" types, ")
+        .append(section.impactedTestCount())
+        .append(" tests)")
+        .append("</summary>\n");
+    html.append("          <div class=\"graph-wrapper cause-graph-wrapper\">\n");
+    html.append(impactGraphSvgRenderer.render(section.graph()));
+    html.append("          </div>\n");
+    html.append("        </details>\n");
   }
 
   private String css() {
@@ -219,6 +251,10 @@ public class HtmlImpactReportRenderer {
         h2 {
           margin: 0 0 0.6rem;
           font-size: 1.2rem;
+        }
+        h3 {
+          margin: 1rem 0 0.6rem;
+          font-size: 1rem;
         }
         .meta {
           margin: 0.3rem 0;
@@ -293,6 +329,25 @@ public class HtmlImpactReportRenderer {
           border-radius: 10px;
           background: #f9fbfc;
           padding: 0.5rem;
+        }
+        .cause-graph-sections {
+          margin-top: 1rem;
+        }
+        .cause-graph-details {
+          margin-top: 0.75rem;
+          border: 1px solid var(--border);
+          border-radius: 10px;
+          background: var(--surface-alt);
+          padding: 0.2rem 0.75rem 0.75rem;
+        }
+        .cause-graph-details summary {
+          cursor: pointer;
+          font-weight: 600;
+          padding: 0.55rem 0 0.35rem;
+        }
+        .cause-graph-wrapper {
+          margin-top: 0.35rem;
+          background: #f9fbfc;
         }
         .impact-graph-svg {
           min-width: 980px;

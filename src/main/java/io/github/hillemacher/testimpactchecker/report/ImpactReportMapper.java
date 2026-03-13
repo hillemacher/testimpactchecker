@@ -24,6 +24,7 @@ public class ImpactReportMapper {
   static final int MAX_TYPE_NODES = 28;
   static final int MAX_TEST_NODES = 40;
   static final int MAX_TOTAL_NODES = 80;
+  static final int MAX_OVERVIEW_TEST_EDGES_PER_TYPE = 2;
 
   private final Clock clock;
 
@@ -129,7 +130,8 @@ public class ImpactReportMapper {
         ? 0
         : impactedTests.stream().mapToInt(entry -> entry.causes().size()).average().orElse(0);
 
-    final ImpactGraph impactGraph = buildImpactGraph(impactedTests, impactedTypeToCauses, causeCounts);
+    final ImpactGraph fullGraph = buildImpactGraph(impactedTests, impactedTypeToCauses, causeCounts);
+    final ImpactGraphBundle graphBundle = buildGraphBundle(fullGraph, topCauses);
     final ImpactReportMetadata metadata = buildMetadata(
         normalizedProjectPath,
         configPath,
@@ -144,7 +146,7 @@ public class ImpactReportMapper {
         averageCausesPerTest,
         impactedTests,
         topCauses,
-        impactGraph);
+        graphBundle);
   }
 
   private ImpactReportMetadata buildMetadata(
@@ -241,6 +243,118 @@ public class ImpactReportMapper {
         allNodes,
         edges,
         new ImpactGraphStats(totalNodes, allNodes.size(), totalEdges, edges.size()));
+  }
+
+  private ImpactGraphBundle buildGraphBundle(
+      final ImpactGraph fullGraph,
+      final List<CauseSummaryEntry> topCauses) {
+    if (fullGraph.nodes().isEmpty()) {
+      return ImpactGraphBundle.empty();
+    }
+
+    final ImpactGraph overviewGraph = buildOverviewGraph(fullGraph);
+    final List<ImpactGraphSection> causeSections = buildCauseSections(fullGraph, topCauses);
+    return new ImpactGraphBundle(fullGraph, overviewGraph, causeSections);
+  }
+
+  private ImpactGraph buildOverviewGraph(final ImpactGraph fullGraph) {
+    final List<ImpactGraphEdge> overviewEdges = new ArrayList<>();
+    final Set<ImpactGraphEdge> selectedEdges = new HashSet<>();
+    final Map<String, ImpactGraphNode> nodesById = indexNodesById(fullGraph.nodes());
+    final Map<String, Integer> typeToSelectedTestEdges = new HashMap<>();
+
+    for (final ImpactGraphEdge edge : fullGraph.edges()) {
+      final ImpactGraphNode fromNode = nodesById.get(edge.fromNodeId());
+      final ImpactGraphNode toNode = nodesById.get(edge.toNodeId());
+      if (fromNode == null || toNode == null) {
+        continue;
+      }
+
+      if (fromNode.kind() == ImpactGraphNodeKind.CAUSE && toNode.kind() == ImpactGraphNodeKind.TYPE) {
+        selectedEdges.add(edge);
+        continue;
+      }
+
+      if (fromNode.kind() == ImpactGraphNodeKind.TYPE
+          && toNode.kind() == ImpactGraphNodeKind.TEST
+          && typeToSelectedTestEdges.getOrDefault(fromNode.id(), 0) < MAX_OVERVIEW_TEST_EDGES_PER_TYPE) {
+        selectedEdges.add(edge);
+        typeToSelectedTestEdges.merge(fromNode.id(), 1, Integer::sum);
+      }
+    }
+
+    overviewEdges.addAll(selectedEdges.stream()
+        .sorted(Comparator.comparing(ImpactGraphEdge::fromNodeId).thenComparing(ImpactGraphEdge::toNodeId))
+        .toList());
+
+    return new ImpactGraph(
+        fullGraph.nodes(),
+        overviewEdges,
+        new ImpactGraphStats(
+            fullGraph.nodes().size(),
+            fullGraph.nodes().size(),
+            fullGraph.edges().size(),
+            overviewEdges.size()));
+  }
+
+  private List<ImpactGraphSection> buildCauseSections(
+      final ImpactGraph fullGraph,
+      final List<CauseSummaryEntry> topCauses) {
+    final Map<String, ImpactGraphNode> nodesById = indexNodesById(fullGraph.nodes());
+    final List<ImpactGraphSection> sections = new ArrayList<>();
+
+    for (final CauseSummaryEntry causeEntry : topCauses) {
+      final String causeNodeId = nodeId(ImpactGraphNodeKind.CAUSE, causeEntry.cause());
+      final ImpactGraphNode causeNode = nodesById.get(causeNodeId);
+      if (causeNode == null) {
+        continue;
+      }
+
+      final Set<String> typeIds = fullGraph.edges().stream()
+          .filter(edge -> edge.fromNodeId().equals(causeNodeId))
+          .map(ImpactGraphEdge::toNodeId)
+          .collect(HashSet::new, Set::add, Set::addAll);
+
+      final Set<String> testIds = new HashSet<>();
+      final Set<ImpactGraphEdge> focusedEdges = new HashSet<>();
+
+      for (final ImpactGraphEdge edge : fullGraph.edges()) {
+        if (edge.fromNodeId().equals(causeNodeId) && typeIds.contains(edge.toNodeId())) {
+          focusedEdges.add(edge);
+        }
+        if (typeIds.contains(edge.fromNodeId())) {
+          final ImpactGraphNode targetNode = nodesById.get(edge.toNodeId());
+          if (targetNode != null && targetNode.kind() == ImpactGraphNodeKind.TEST) {
+            focusedEdges.add(edge);
+            testIds.add(edge.toNodeId());
+          }
+        }
+      }
+
+      final List<ImpactGraphNode> sectionNodes = fullGraph.nodes().stream()
+          .filter(node -> node.id().equals(causeNodeId) || typeIds.contains(node.id()) || testIds.contains(node.id()))
+          .toList();
+      final List<ImpactGraphEdge> sectionEdges = focusedEdges.stream()
+          .sorted(Comparator.comparing(ImpactGraphEdge::fromNodeId).thenComparing(ImpactGraphEdge::toNodeId))
+          .toList();
+
+      sections.add(new ImpactGraphSection(
+          causeEntry.cause(),
+          typeIds.size(),
+          testIds.size(),
+          new ImpactGraph(
+              sectionNodes,
+              sectionEdges,
+              new ImpactGraphStats(sectionNodes.size(), sectionNodes.size(), sectionEdges.size(), sectionEdges.size()))));
+    }
+
+    return sections;
+  }
+
+  private Map<String, ImpactGraphNode> indexNodesById(final List<ImpactGraphNode> nodes) {
+    final Map<String, ImpactGraphNode> nodesById = new HashMap<>();
+    nodes.forEach(node -> nodesById.put(node.id(), node));
+    return nodesById;
   }
 
   private Comparator<ImpactGraphNode> graphNodeComparator() {

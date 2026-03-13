@@ -53,7 +53,7 @@ When `--html-report` is set, the checker additionally writes a static HTML artif
 - Summary cards (impacted tests, unique causes, average causes per test)
 - Impacted tests and their causes
 - Top causes sorted by impacted test count
-- A static impact graph (inline SVG) with lanes `causes -> impacted types -> impacted tests`
+- A static graph section with a simplified overview graph plus collapsible per-cause detail graphs
 
 Path behavior:
 
@@ -66,7 +66,8 @@ CI recommendation:
 - Use `${project}/reports/impact-report.html` as your artifact path.
 - The report renders the generation timestamp in the executing machine's local timezone and includes the UTC timestamp in parentheses.
 - The execution zone shown in the report comes from the machine running the checker (`ZoneId.systemDefault()`), so local runs and CI may display different zones.
-- The graph is intentionally focused/capped for readability and deterministic CI artifacts.
+- The graph is intentionally focused/capped for deterministic CI artifacts, and the overview graph hides lower-signal edges for readability.
+- Use the per-cause detail graphs in the report when you need to inspect exact edge relationships for a specific changed cause.
 - Default caps for the graph are fixed in code (`12` causes, `28` impacted types, `40` tests, `80` total nodes).
 
 ## Configuration

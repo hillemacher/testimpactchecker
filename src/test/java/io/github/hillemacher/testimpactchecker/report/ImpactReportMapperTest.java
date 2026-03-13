@@ -71,13 +71,15 @@ class ImpactReportMapperTest {
         new CauseSummaryEntry("AClass", 2),
         new CauseSummaryEntry("BClass", 1));
 
-    assertThat(report.impactGraph().nodes()).isNotEmpty();
-    assertThat(report.impactGraph().edges()).isNotEmpty();
-    assertThat(report.impactGraph().nodes()).anyMatch(node -> node.kind() == ImpactGraphNodeKind.CAUSE);
-    assertThat(report.impactGraph().nodes()).anyMatch(node -> node.kind() == ImpactGraphNodeKind.TYPE);
-    assertThat(report.impactGraph().nodes()).anyMatch(node -> node.kind() == ImpactGraphNodeKind.TEST);
-    assertThat(report.impactGraph().nodes())
+    assertThat(report.graphBundle().fullGraph().nodes()).isNotEmpty();
+    assertThat(report.graphBundle().fullGraph().edges()).isNotEmpty();
+    assertThat(report.graphBundle().fullGraph().nodes()).anyMatch(node -> node.kind() == ImpactGraphNodeKind.CAUSE);
+    assertThat(report.graphBundle().fullGraph().nodes()).anyMatch(node -> node.kind() == ImpactGraphNodeKind.TYPE);
+    assertThat(report.graphBundle().fullGraph().nodes()).anyMatch(node -> node.kind() == ImpactGraphNodeKind.TEST);
+    assertThat(report.graphBundle().fullGraph().nodes())
         .anyMatch(node -> node.kind() == ImpactGraphNodeKind.TEST && node.label().equals("TestA"));
+    assertThat(report.graphBundle().causeSections()).extracting(ImpactGraphSection::cause)
+        .containsExactly("AClass", "BClass");
   }
 
   /**
@@ -102,7 +104,7 @@ class ImpactReportMapperTest {
     assertThat(report.averageCausesPerTest()).isZero();
     assertThat(report.impactedTests()).isEmpty();
     assertThat(report.topCauses()).isEmpty();
-    assertThat(report.impactGraph()).isEqualTo(ImpactGraph.empty());
+    assertThat(report.graphBundle()).isEqualTo(ImpactGraphBundle.empty());
     assertThat(report.metadata().configPath()).isEmpty();
   }
 
@@ -117,11 +119,16 @@ class ImpactReportMapperTest {
 
     final Map<Path, Set<String>> relevantTestsWithCauses = new LinkedHashMap<>();
     final Map<String, Set<String>> impactedTypeToCauses = new LinkedHashMap<>();
+    final Set<String> allCauses = new LinkedHashSet<>();
+
+    for (int i = 1; i <= 24; i++) {
+      allCauses.add("Cause" + i);
+    }
 
     for (int i = 1; i <= 24; i++) {
       final String cause = "Cause" + i;
       final Path testPath = projectPath.resolve("module/src/test/java/T" + i + "Test.java");
-      relevantTestsWithCauses.put(testPath, Set.of(cause));
+      relevantTestsWithCauses.put(testPath, allCauses);
       impactedTypeToCauses.put("Type" + i, new LinkedHashSet<>(Set.of(cause)));
     }
 
@@ -130,10 +137,15 @@ class ImpactReportMapperTest {
     final ImpactReport report2 = mapper.toImpactReport(
         projectPath, null, createConfig(), ZoneId.of("UTC"), relevantTestsWithCauses, impactedTypeToCauses);
 
-    assertThat(report1.impactGraph().stats().isTruncated()).isTrue();
-    assertThat(report1.impactGraph().stats().shownNodes()).isLessThanOrEqualTo(80);
-    assertThat(report1.impactGraph().nodes()).isEqualTo(report2.impactGraph().nodes());
-    assertThat(report1.impactGraph().edges()).isEqualTo(report2.impactGraph().edges());
+    assertThat(report1.graphBundle().fullGraph().stats().isTruncated()).isTrue();
+    assertThat(report1.graphBundle().fullGraph().stats().shownNodes()).isLessThanOrEqualTo(80);
+    assertThat(report1.graphBundle().fullGraph().nodes()).isEqualTo(report2.graphBundle().fullGraph().nodes());
+    assertThat(report1.graphBundle().fullGraph().edges()).isEqualTo(report2.graphBundle().fullGraph().edges());
+    assertThat(report1.graphBundle().overviewGraph().nodes()).isEqualTo(report1.graphBundle().fullGraph().nodes());
+    assertThat(report1.graphBundle().overviewGraph().edges().size())
+        .isLessThan(report1.graphBundle().fullGraph().edges().size());
+    assertThat(report1.graphBundle().causeSections()).extracting(ImpactGraphSection::cause)
+        .isEqualTo(report2.graphBundle().causeSections().stream().map(ImpactGraphSection::cause).toList());
   }
 
   /**
@@ -163,9 +175,9 @@ class ImpactReportMapperTest {
         relevantTestsWithCauses,
         Map.of("FooFacade", Set.of("FooService"), "FooService", Set.of("FooService")));
 
-    assertThat(direct.impactGraph().nodes()).anyMatch(node -> node.kind() == ImpactGraphNodeKind.CAUSE);
-    assertThat(direct.impactGraph().nodes()).anyMatch(node -> node.kind() == ImpactGraphNodeKind.TEST);
-    assertThat(transitive.impactGraph().nodes()).anyMatch(node -> node.kind() == ImpactGraphNodeKind.TYPE);
+    assertThat(direct.graphBundle().fullGraph().nodes()).anyMatch(node -> node.kind() == ImpactGraphNodeKind.CAUSE);
+    assertThat(direct.graphBundle().fullGraph().nodes()).anyMatch(node -> node.kind() == ImpactGraphNodeKind.TEST);
+    assertThat(transitive.graphBundle().fullGraph().nodes()).anyMatch(node -> node.kind() == ImpactGraphNodeKind.TYPE);
   }
 
   /**
@@ -192,6 +204,44 @@ class ImpactReportMapperTest {
     assertThat(report.metadata().annotations()).containsExactly("Alpha", "Zeta");
     assertThat(report.metadata().baseRef()).isEmpty();
     assertThat(report.metadata().targetRef()).isEmpty();
+  }
+
+  /**
+   * Verifies per-cause graphs contain only nodes and edges connected to their cause.
+   */
+  @Test
+  void testToImpactReportBuildsFocusedPerCauseGraphs() {
+    final Path projectPath = Path.of("/tmp/project");
+    final ImpactReportMapper mapper = new ImpactReportMapper(
+        Clock.fixed(Instant.parse("2026-03-11T09:15:00Z"), ZoneOffset.UTC));
+
+    final Map<Path, Set<String>> relevantTestsWithCauses = Map.of(
+        projectPath.resolve("module/src/test/java/FooTest.java"), Set.of("FooService"),
+        projectPath.resolve("module/src/test/java/BarTest.java"), Set.of("BarService"));
+    final Map<String, Set<String>> impactedTypeToCauses = Map.of(
+        "FooFacade", Set.of("FooService"),
+        "BarFacade", Set.of("BarService"));
+
+    final ImpactReport report = mapper.toImpactReport(
+        projectPath,
+        null,
+        createConfig(),
+        ZoneId.of("UTC"),
+        relevantTestsWithCauses,
+        impactedTypeToCauses);
+
+    final ImpactGraphSection fooSection = report.graphBundle().causeSections().stream()
+        .filter(section -> section.cause().equals("FooService"))
+        .findFirst()
+        .orElseThrow();
+
+    assertThat(fooSection.impactedTypeCount()).isEqualTo(1);
+    assertThat(fooSection.impactedTestCount()).isEqualTo(1);
+    assertThat(fooSection.graph().nodes()).extracting(ImpactGraphNode::label)
+        .containsExactlyInAnyOrder("FooService", "FooFacade", "FooTest");
+    assertThat(fooSection.graph().edges()).containsExactlyInAnyOrder(
+        new ImpactGraphEdge("cause|FooService", "type|FooFacade"),
+        new ImpactGraphEdge("type|FooFacade", "test|module/src/test/java/FooTest.java"));
   }
 
   private ImpactCheckerConfig createConfig() {
