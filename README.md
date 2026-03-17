@@ -51,7 +51,7 @@ When `--html-report` is set, the checker additionally writes a static HTML artif
 
 - A run metadata section with the effective project path, Git refs, annotations, analysis settings, and config path
 - Summary cards (impacted tests, unique causes, average causes per test)
-- Impacted tests and their causes
+- Impacted tests and their causes, including an in-browser checkbox filter for matching any selected cause
 - Top causes sorted by impacted test count
 - A static graph section with a simplified overview graph plus collapsible per-cause detail graphs
 
@@ -67,6 +67,7 @@ CI recommendation:
 - The report renders the generation timestamp in the executing machine's local timezone and includes the UTC timestamp in parentheses.
 - The execution zone shown in the report comes from the machine running the checker (`ZoneId.systemDefault()`), so local runs and CI may display different zones.
 - The graph is intentionally focused/capped for deterministic CI artifacts, and the overview graph hides lower-signal edges for readability.
+- The impacted tests table can be filtered client-side by selecting one or more causes; rows remain visible when they match any selected cause.
 - Use the per-cause detail graphs in the report when you need to inspect exact edge relationships for a specific changed cause.
 - Default caps for the graph are fixed in code (`12` causes, `28` impacted types, `40` tests, `80` total nodes).
 

@@ -24,11 +24,13 @@ class HtmlImpactReportRendererTest {
                 Path.of("/tmp/project<&>\"'"),
                 Path.of("/tmp/config<&>/checker.json"),
                 ZoneId.of("Europe/Berlin")),
-            1,
-            1,
-            1,
-            List.of(new ImpactedTestEntry(Path.of("module/Test<Evil>.java"), List.of("Ca&use\""))),
-            List.of(new CauseSummaryEntry("Ca&use\"", 1)),
+            2,
+            2,
+            1.5,
+            List.of(
+                new ImpactedTestEntry(Path.of("module/Test<Evil>.java"), List.of("Ca&use\"", "B")),
+                new ImpactedTestEntry(Path.of("module/OtherTest.java"), List.of("B"))),
+            List.of(new CauseSummaryEntry("B", 2), new CauseSummaryEntry("Ca&use\"", 1)),
             createGraphBundle("Ca&use\"", "Fa<cade>", "module/Test<Evil>.java"));
 
     final String html = renderer.render(report);
@@ -55,11 +57,21 @@ class HtmlImpactReportRendererTest {
     assertThat(html).contains("Generated");
     assertThat(html).contains("2026-03-11 10:15:00 CET (2026-03-11 09:15:00 UTC)");
     assertThat(html).contains("Overview hides 1 lower-signal edges to reduce clutter.");
+    assertThat(html).contains("Filter by causes");
+    assertThat(html).contains("Clear filters");
+    assertThat(html).contains("Showing 2 of 2 tests");
+    assertThat(html).contains("No impacted tests match the selected causes.");
+    assertThat(html).contains("cause-filter-checkbox");
+    assertThat(html).contains("data-causes=\"b-0|ca-use--1\"");
+    assertThat(html).contains("data-causes=\"b-0\"");
     assertThat(html).contains("module/Test&lt;Evil&gt;.java");
     assertThat(html).contains("Ca&amp;use&quot;");
     assertThat(html).contains("Fa&lt;cade&gt;");
     assertThat(html).contains("/tmp/project&lt;&amp;&gt;&quot;&#39;");
     assertThat(html).contains("/tmp/config&lt;&amp;&gt;/checker.json");
+    assertThat(html).contains(">B</span>");
+    assertThat(html).contains(">Ca&amp;use&quot;</span>");
+    assertThat(html).contains("const selectedCauses = new Set");
     assertThat(html).doesNotContain("module/Test<Evil>.java");
   }
 
@@ -82,6 +94,7 @@ class HtmlImpactReportRendererTest {
     assertThat(html).contains("None found.");
     assertThat(html).contains("No impact graph data available.");
     assertThat(html).doesNotContain("Config path");
+    assertThat(html).doesNotContain("Filter by causes");
   }
 
   /** Verifies truncation metadata is rendered for capped graph outputs. */

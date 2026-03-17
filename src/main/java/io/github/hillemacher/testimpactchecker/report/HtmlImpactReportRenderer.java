@@ -4,7 +4,12 @@ import java.time.Instant;
 import java.time.ZoneId;
 import java.time.ZoneOffset;
 import java.time.format.DateTimeFormatter;
+import java.util.LinkedHashMap;
+import java.util.List;
 import java.util.Locale;
+import java.util.Map;
+import java.util.Set;
+import java.util.TreeSet;
 import lombok.NonNull;
 
 /** Renders an {@link ImpactReport} as a static dependency-free HTML page. */
@@ -62,6 +67,7 @@ public class HtmlImpactReportRenderer {
     renderImpactGraphSection(report, html);
 
     html.append("  </main>\n");
+    html.append(script());
     html.append("</body>\n");
     html.append("</html>\n");
     return html.toString();
@@ -110,6 +116,7 @@ public class HtmlImpactReportRenderer {
   }
 
   private void renderImpactedTestsSection(final ImpactReport report, final StringBuilder html) {
+    final Map<String, String> causeTokens = createCauseTokens(report);
     html.append("    <section>\n");
     html.append("      <h2>Impacted tests and causes</h2>\n");
     if (report.impactedTests().isEmpty()) {
@@ -118,15 +125,18 @@ public class HtmlImpactReportRenderer {
       return;
     }
 
+    renderCausesFilterControls(report, causeTokens, html);
     html.append("      <div class=\"table-wrapper\">\n");
-    html.append("      <table>\n");
+    html.append("      <table id=\"impacted-tests-table\">\n");
     html.append("        <thead><tr><th>Test path</th><th>Causes</th></tr></thead>\n");
     html.append("        <tbody>\n");
     report
         .impactedTests()
         .forEach(
             entry -> {
-              html.append("          <tr><td>")
+              html.append("          <tr data-causes=\"")
+                  .append(escapeHtml(joinCausesAttributeValue(entry.causes(), causeTokens)))
+                  .append("\"><td>")
                   .append(escapeHtml(entry.relativeTestPath().toString()))
                   .append("</td><td>")
                   .append(escapeHtml(String.join(", ", entry.causes())))
@@ -135,7 +145,45 @@ public class HtmlImpactReportRenderer {
     html.append("        </tbody>\n");
     html.append("      </table>\n");
     html.append("      </div>\n");
+    html.append(
+        "      <p id=\"impacted-tests-empty-filter\" class=\"empty-state\" hidden>"
+            + "No impacted tests match the selected causes.</p>\n");
     html.append("    </section>\n");
+  }
+
+  private void renderCausesFilterControls(
+      final ImpactReport report, final Map<String, String> causeTokens, final StringBuilder html) {
+    html.append("      <div class=\"table-filter-panel\" aria-label=\"Cause filters\">\n");
+    html.append("        <div class=\"table-filter-toolbar\">\n");
+    html.append("          <div>\n");
+    html.append("            <p class=\"table-filter-label\">Filter by causes</p>\n");
+    html.append("            <p id=\"impacted-tests-filter-summary\" class=\"meta\">Showing ")
+        .append(report.impactedTests().size())
+        .append(" of ")
+        .append(report.impactedTests().size())
+        .append(" tests</p>\n");
+    html.append("          </div>\n");
+    html.append(
+        "          <button type=\"button\" id=\"clear-cause-filters\" class=\"filter-button\">"
+            + "Clear filters</button>\n");
+    html.append("        </div>\n");
+    html.append("        <div class=\"cause-filter-options\">\n");
+    for (final Map.Entry<String, String> causeEntry : causeTokens.entrySet()) {
+      final String cause = causeEntry.getKey();
+      final String causeId = causeEntry.getValue();
+      html.append("          <label class=\"filter-checkbox\" for=\"cause-filter-")
+          .append(escapeHtml(causeId))
+          .append("\">\n");
+      html.append("            <input type=\"checkbox\" id=\"cause-filter-")
+          .append(escapeHtml(causeId))
+          .append("\" class=\"cause-filter-checkbox\" value=\"")
+          .append(escapeHtml(causeId))
+          .append("\">\n");
+      html.append("            <span>").append(escapeHtml(cause)).append("</span>\n");
+      html.append("          </label>\n");
+    }
+    html.append("        </div>\n");
+    html.append("      </div>\n");
   }
 
   private void renderTopCausesSection(final ImpactReport report, final StringBuilder html) {
@@ -318,6 +366,56 @@ public class HtmlImpactReportRenderer {
         .table-wrapper {
           overflow-x: auto;
         }
+        .table-filter-panel {
+          border: 1px solid var(--border);
+          border-radius: 10px;
+          background: #f9fbfc;
+          padding: 0.85rem;
+          margin-bottom: 0.85rem;
+        }
+        .table-filter-toolbar {
+          display: flex;
+          align-items: flex-start;
+          justify-content: space-between;
+          gap: 0.75rem;
+          margin-bottom: 0.75rem;
+        }
+        .table-filter-label {
+          margin: 0 0 0.15rem;
+          font-weight: 600;
+        }
+        .cause-filter-options {
+          display: grid;
+          grid-template-columns: repeat(auto-fit, minmax(220px, 1fr));
+          gap: 0.45rem 0.75rem;
+          max-height: 12rem;
+          overflow-y: auto;
+          padding-right: 0.35rem;
+        }
+        .filter-checkbox {
+          display: flex;
+          align-items: flex-start;
+          gap: 0.5rem;
+          padding: 0.35rem 0.45rem;
+          border-radius: 8px;
+          background: var(--surface);
+          border: 1px solid var(--border);
+        }
+        .filter-checkbox input {
+          margin-top: 0.15rem;
+        }
+        .filter-button {
+          border: 1px solid var(--accent);
+          border-radius: 999px;
+          background: var(--surface);
+          color: var(--accent);
+          font: inherit;
+          padding: 0.4rem 0.8rem;
+          cursor: pointer;
+        }
+        .filter-button:hover {
+          background: #edf6f8;
+        }
         table {
           border-collapse: collapse;
           width: 100%;
@@ -426,8 +524,107 @@ public class HtmlImpactReportRenderer {
           .metric-card p {
             font-size: 1.3rem;
           }
+          .table-filter-toolbar {
+            flex-direction: column;
+          }
         }
         """;
+  }
+
+  private String script() {
+    return """
+        <script>
+          (() => {
+            const table = document.getElementById("impacted-tests-table");
+            if (!table) {
+              return;
+            }
+
+            const rows = Array.from(table.querySelectorAll("tbody tr"));
+            const checkboxes = Array.from(document.querySelectorAll(".cause-filter-checkbox"));
+            const clearButton = document.getElementById("clear-cause-filters");
+            const summary = document.getElementById("impacted-tests-filter-summary");
+            const emptyState = document.getElementById("impacted-tests-empty-filter");
+            const totalRows = rows.length;
+
+            const updateVisibility = () => {
+              const selectedCauses = new Set(
+                checkboxes.filter((checkbox) => checkbox.checked).map((checkbox) => checkbox.value)
+              );
+              let visibleRows = 0;
+
+              rows.forEach((row) => {
+                const rowCauses = (row.dataset.causes || "")
+                  .split("|")
+                  .filter((value) => value.length > 0);
+                const isVisible =
+                  selectedCauses.size === 0 ||
+                  rowCauses.some((cause) => selectedCauses.has(cause));
+                row.hidden = !isVisible;
+                if (isVisible) {
+                  visibleRows += 1;
+                }
+              });
+
+              summary.textContent = `Showing ${visibleRows} of ${totalRows} tests`;
+              emptyState.hidden = visibleRows !== 0;
+            };
+
+            checkboxes.forEach((checkbox) => {
+              checkbox.addEventListener("change", updateVisibility);
+            });
+            clearButton.addEventListener("click", () => {
+              checkboxes.forEach((checkbox) => {
+                checkbox.checked = false;
+              });
+              updateVisibility();
+            });
+
+            updateVisibility();
+          })();
+        </script>
+        """;
+  }
+
+  private Set<String> collectUniqueCauses(final ImpactReport report) {
+    final Set<String> uniqueCauses = new TreeSet<>();
+    report.impactedTests().forEach(entry -> uniqueCauses.addAll(entry.causes()));
+    return uniqueCauses;
+  }
+
+  private Map<String, String> createCauseTokens(final ImpactReport report) {
+    final Map<String, String> causeTokens = new LinkedHashMap<>();
+    int tokenIndex = 0;
+    for (final String cause : collectUniqueCauses(report)) {
+      causeTokens.put(cause, toCauseToken(cause, tokenIndex));
+      tokenIndex++;
+    }
+    return causeTokens;
+  }
+
+  private String joinCausesAttributeValue(
+      final List<String> causes, final Map<String, String> causeTokens) {
+    final StringBuilder joinedTokens = new StringBuilder();
+    for (int index = 0; index < causes.size(); index++) {
+      if (index > 0) {
+        joinedTokens.append('|');
+      }
+      joinedTokens.append(causeTokens.get(causes.get(index)));
+    }
+    return joinedTokens.toString();
+  }
+
+  private String toCauseToken(final String cause, final int tokenIndex) {
+    final StringBuilder token = new StringBuilder();
+    for (int characterIndex = 0; characterIndex < cause.length(); characterIndex++) {
+      final char character = cause.charAt(characterIndex);
+      if (Character.isLetterOrDigit(character)) {
+        token.append(Character.toLowerCase(character));
+      } else {
+        token.append('-');
+      }
+    }
+    return token.append('-').append(tokenIndex).toString();
   }
 
   private String escapeHtml(final String raw) {
