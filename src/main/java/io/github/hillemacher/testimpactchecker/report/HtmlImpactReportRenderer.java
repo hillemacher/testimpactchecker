@@ -402,7 +402,14 @@ public class HtmlImpactReportRenderer {
           border: 1px solid var(--border);
         }
         .filter-checkbox input {
+          flex: 0 0 auto;
           margin-top: 0.15rem;
+        }
+        .filter-checkbox span {
+          min-width: 0;
+          line-height: 1.35;
+          overflow-wrap: anywhere;
+          word-break: break-word;
         }
         .filter-button {
           border: 1px solid var(--accent);

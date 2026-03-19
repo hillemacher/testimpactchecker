@@ -247,12 +247,17 @@ class TestImpactCheckerCliTest {
     final Path projectPath = tempDir.resolve("project-build-preview");
     final Path configPath = writeConfig(projectPath);
     final Path previewReportPath = CLI_PREVIEW_REPORT_PATH.toAbsolutePath().normalize();
+    final Map<Path, Set<String>> impacts = createDefaultImpacts(projectPath);
+    impacts.put(
+        projectPath.resolve("module/src/test/java/a/TestA.java"),
+        Set.of("QuendralithVexmoorHyperCachingCoordinator", "CClass", "AClass"));
 
     Files.createDirectories(previewReportPath.getParent());
     Files.deleteIfExists(previewReportPath);
 
     executeCliAndCaptureStdout(
         projectPath,
+        impacts,
         new String[] {
           "-p",
           projectPath.toString(),
@@ -270,16 +275,12 @@ class TestImpactCheckerCliTest {
   }
 
   private String executeCliAndCaptureStdout(final Path projectPath, final String[] args) {
-    final Path testB = projectPath.resolve("module/src/test/java/b/TestB.java");
-    final Path testA = projectPath.resolve("module/src/test/java/a/TestA.java");
-    final Map<Path, Set<String>> impacts = new LinkedHashMap<>();
-    impacts.put(testB, Set.of("BClass"));
-    impacts.put(testA, Set.of("CClass", "AClass"));
-    final Map<String, Set<String>> impactedTypeToCauses =
-        Map.of(
-            "AClass", Set.of("AClass"),
-            "CClass", Set.of("CClass"),
-            "FacadeType", Set.of("AClass", "CClass"));
+    return executeCliAndCaptureStdout(projectPath, createDefaultImpacts(projectPath), args);
+  }
+
+  private String executeCliAndCaptureStdout(
+      final Path projectPath, final Map<Path, Set<String>> impacts, final String[] args) {
+    final Map<String, Set<String>> impactedTypeToCauses = createDefaultImpactedTypeToCauses();
 
     final ByteArrayOutputStream stdout = new ByteArrayOutputStream();
     final PrintStream originalOut = System.out;
@@ -297,6 +298,22 @@ class TestImpactCheckerCliTest {
     } finally {
       System.setOut(originalOut);
     }
+  }
+
+  private Map<Path, Set<String>> createDefaultImpacts(final Path projectPath) {
+    final Path testB = projectPath.resolve("module/src/test/java/b/TestB.java");
+    final Path testA = projectPath.resolve("module/src/test/java/a/TestA.java");
+    final Map<Path, Set<String>> impacts = new LinkedHashMap<>();
+    impacts.put(testB, Set.of("BClass"));
+    impacts.put(testA, Set.of("CClass", "AClass"));
+    return impacts;
+  }
+
+  private Map<String, Set<String>> createDefaultImpactedTypeToCauses() {
+    return Map.of(
+        "AClass", Set.of("AClass"),
+        "CClass", Set.of("CClass"),
+        "FacadeType", Set.of("AClass", "CClass"));
   }
 
   private Path writeConfig(final Path projectPath) throws IOException {
