@@ -47,7 +47,7 @@ class HtmlImpactReportRendererTest {
     assertThat(html).contains("Base ref");
     assertThat(html).contains("refs/heads/main&lt;&amp;&gt;");
     assertThat(html).contains("Target ref");
-    assertThat(html).contains("HEAD&quot;");
+    assertThat(html).contains("HEAD\"");
     assertThat(html).contains("Analysis mode");
     assertThat(html).contains("TRANSITIVE");
     assertThat(html).contains("Mock policy");
@@ -65,13 +65,17 @@ class HtmlImpactReportRendererTest {
     assertThat(html).contains("data-causes=\"b-0|ca-use--1\"");
     assertThat(html).contains("data-causes=\"b-0\"");
     assertThat(html).contains("module/Test&lt;Evil&gt;.java");
-    assertThat(html).contains("Ca&amp;use&quot;");
+    assertThat(html).contains("Ca&amp;use\"");
     assertThat(html).contains("Fa&lt;cade&gt;");
-    assertThat(html).contains("/tmp/project&lt;&amp;&gt;&quot;&#39;");
+    assertThat(html).contains("/tmp/project&lt;&amp;&gt;\"'");
     assertThat(html).contains("/tmp/config&lt;&amp;&gt;/checker.json");
     assertThat(html).contains(">B</span>");
-    assertThat(html).contains(">Ca&amp;use&quot;</span>");
+    assertThat(html).contains(">Ca&amp;use\"</span>");
     assertThat(html).contains("const selectedCauses = new Set");
+    assertThat(html).contains("<style>");
+    assertThat(html).contains("<script>");
+    assertThat(html).doesNotContain("<link rel=\"stylesheet\"");
+    assertThat(html).doesNotContain("<script src=");
     assertThat(html).doesNotContain("module/Test<Evil>.java");
   }
 
