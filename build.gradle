@@ -35,6 +35,11 @@ spotless {
         trimTrailingWhitespace()
         endWithNewline()
     }
+    format 'reportAssets', {
+        target 'src/main/resources/**/*.js', 'src/main/resources/**/*.css'
+        trimTrailingWhitespace()
+        endWithNewline()
+    }
 }
 
 dependencies {
