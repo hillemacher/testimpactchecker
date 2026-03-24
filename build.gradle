@@ -3,6 +3,7 @@ plugins {
     id 'com.diffplug.spotless' version '6.25.0'
     id("com.gradleup.shadow") version "8.3.8"
     id 'application'
+    id 'gg.jte.gradle' version '3.2.3'
     id 'java'
 }
 
@@ -37,6 +38,7 @@ spotless {
 }
 
 dependencies {
+    implementation("gg.jte:jte:3.2.3")
     implementation("com.github.javaparser:javaparser-core:3.27.0")
     implementation("org.eclipse.jgit:org.eclipse.jgit:7.3.0.202506031305-r")
     implementation("com.fasterxml.jackson.core:jackson-databind:2.19.1")
@@ -70,6 +72,10 @@ test {
     useJUnitPlatform()
 }
 
+jte {
+    generate()
+}
+
 tasks.withType(JavaCompile).configureEach {
     options.release = 21
 }
@@ -100,6 +106,7 @@ shadowJar {
 }
 
 tasks.withType(Checkstyle).configureEach {
+    exclude '**/gg/jte/generated/**'
     reports {
         xml.required = false
         html.required = true

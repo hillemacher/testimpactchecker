@@ -54,6 +54,7 @@ When `--html-report` is set, the checker additionally writes a static HTML artif
 - Impacted tests and their causes, including an in-browser checkbox filter for matching any selected cause
 - Top causes sorted by impacted test count
 - A static graph section with a simplified overview graph plus collapsible per-cause detail graphs
+- Embedded CSS and JavaScript so the report remains a single self-contained artifact for CI uploads
 
 Path behavior:
 
@@ -70,6 +71,7 @@ CI recommendation:
 - The impacted tests table can be filtered client-side by selecting one or more causes; rows remain visible when they match any selected cause.
 - Use the per-cause detail graphs in the report when you need to inspect exact edge relationships for a specific changed cause.
 - Default caps for the graph are fixed in code (`12` causes, `28` impacted types, `40` tests, `80` total nodes).
+- The report is rendered from precompiled `jte` templates packaged into the CLI jar, while preserving the same single-file output behavior.
 
 ## Configuration
 
@@ -166,6 +168,7 @@ that by marking the workflow check as required in branch protection for `main`.
 Key dependencies include:
 
 - JGit (for Git operations)
+- jte (for precompiled HTML report templates)
 - JavaParser (for Java source analysis)
 - Lombok (for boilerplate reduction)
 - Jackson (for JSON config parsing)
