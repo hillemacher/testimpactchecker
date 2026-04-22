@@ -30,6 +30,9 @@ Run the tool with the path to your project and the configuration JSON file as ar
 - `--html-report <path-or-directory>`: Optional output path for a static HTML report. If a directory is provided, the report file name defaults to `impact-report.html`. This overrides the config value `htmlReportOutputPath` when both are set.
 - `--format <value>`: Output format. One of `human` (default), `json`, `gradle-filter`, `junit-includes`. Repeatable — use multiple times to emit more than one format in a single run.
 - `--format-out <path>`: Output path for the matching `--format` at the same position. Omit (or pass an empty string) to let that format write to stdout. Only one format may target stdout per run. Relative paths are resolved from `--project`.
+- `--no-cache`: Disable the persistent main-source index cache for this run.
+- `--clear-cache`: Delete the cache directory before running analysis.
+- `--verify-cache`: Run analysis twice (uncached then cached) and assert the results are identical. Fails the run on any mismatch — useful as a one-off correctness check in CI before trusting the cache.
 - `-d` or `--debug`: Enable debug logging with detailed diagnostics. *(Optional)*
 - `-h` or `--help`: Show help and usage information.
 
@@ -66,6 +69,15 @@ java -jar TestImpactChecker-CLI.jar -p . -c config.json \
 ./gradlew test $(java -jar TestImpactChecker-CLI.jar -p . -c config.json \
   --format gradle-filter | sed 's/^/--tests /' | tr '\n' ' ')
 ```
+
+### Incremental Cache
+
+To avoid re-parsing unchanged `src/main/java` files on every run, the tool persists a SHA-256-keyed per-file parse cache under `<project>/.testimpactchecker/cache/type-index.v1.json`.
+
+- The cache is **enabled by default**. Files whose content hash matches a cached entry skip JavaParser entirely; only changed, added, or removed files are reparsed.
+- The cache directory is safe to delete at any time and is not intended to be checked into version control. Add `.testimpactchecker/` to your `.gitignore`.
+- A `cacheVersion` field invalidates the whole cache after tool upgrades.
+- Use `--no-cache` to bypass for a single run, `--clear-cache` to delete and rebuild, and `--verify-cache` to run both the cached and uncached paths and assert parity (recommended as a one-off CI check before trusting the cache on a new codebase).
 
 ### Report Output
 
