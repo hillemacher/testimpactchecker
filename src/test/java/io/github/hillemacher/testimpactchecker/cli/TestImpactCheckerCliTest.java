@@ -420,6 +420,39 @@ class TestImpactCheckerCliTest {
     assertThat(output).doesNotContain("\"schemaVersion\"");
   }
 
+  /**
+   * Pins the elapsed-time formatter contract: sub-second → ms, otherwise seconds with 3 decimals.
+   */
+  @Test
+  void testFormatElapsedFormatsMillisAndSeconds() {
+    assertThat(TestImpactCheckerCli.formatElapsed(0L)).isEqualTo("0 ms");
+    assertThat(TestImpactCheckerCli.formatElapsed(500_000_000L)).isEqualTo("500 ms");
+    assertThat(TestImpactCheckerCli.formatElapsed(999_000_000L)).isEqualTo("999 ms");
+    assertThat(TestImpactCheckerCli.formatElapsed(1_000_000_000L)).isEqualTo("1.000 s");
+    assertThat(TestImpactCheckerCli.formatElapsed(2_345_000_000L)).isEqualTo("2.345 s");
+    assertThat(TestImpactCheckerCli.formatElapsed(90_000_000_000L)).isEqualTo("90.000 s");
+  }
+
+  /** Verifies the final log line surfaces an elapsed-time suffix. */
+  @Test
+  void testMainLogsElapsedTimeOnFinish() throws IOException {
+    final Path projectPath = tempDir.resolve("project-timing");
+    final Path configPath = writeConfig(projectPath);
+
+    final ByteArrayOutputStream err = new ByteArrayOutputStream();
+    final PrintStream originalErr = System.err;
+    System.setErr(new PrintStream(err, true, StandardCharsets.UTF_8));
+    try {
+      executeCliAndCaptureStdout(
+          projectPath, new String[] {"-p", projectPath.toString(), "-c", configPath.toString()});
+    } finally {
+      System.setErr(originalErr);
+    }
+    final String errOutput = err.toString(StandardCharsets.UTF_8);
+    assertThat(errOutput)
+        .containsPattern("Finished impact analysis with success in [\\d.]+ (ms|s)");
+  }
+
   /** Ensures the legacy default invocation still emits the exact historical stdout report. */
   @Test
   void testMainDefaultHumanOutputMatchesExplicitHumanFlag() throws IOException {
