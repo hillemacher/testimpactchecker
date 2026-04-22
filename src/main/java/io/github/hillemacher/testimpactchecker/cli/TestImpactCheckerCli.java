@@ -81,6 +81,7 @@ public class TestImpactCheckerCli {
     final HelpFormatter formatter = new HelpFormatter();
 
     final Options options = getOptions();
+    final long startNanos = System.nanoTime();
     boolean success = false;
     boolean stdoutTargetIsHuman = true;
     try {
@@ -167,7 +168,18 @@ public class TestImpactCheckerCli {
       System.out.println(SEPARATOR);
       System.out.println();
     }
-    log.info("Finished impact analysis {}", success ? "with success" : "with problems");
+    log.info(
+        "Finished impact analysis {} in {}",
+        success ? "with success" : "with problems",
+        formatElapsed(System.nanoTime() - startNanos));
+  }
+
+  static String formatElapsed(final long elapsedNanos) {
+    final long elapsedMillis = elapsedNanos / 1_000_000L;
+    if (elapsedMillis < 1000L) {
+      return elapsedMillis + " ms";
+    }
+    return String.format(java.util.Locale.ROOT, "%.3f s", elapsedMillis / 1000.0);
   }
 
   private static TestImpactChecker.CacheMode resolveCacheMode(final CommandLine cmd) {
