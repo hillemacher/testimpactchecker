@@ -29,7 +29,7 @@ public class TestTypeUsageExtractor {
     final ClassOrInterfaceDeclaration classDecl =
         compilationUnit.findFirst(ClassOrInterfaceDeclaration.class).orElse(null);
     if (classDecl == null) {
-      return new TestTypeUsage(false, Set.of());
+      return new TestTypeUsage(false, Set.of(), null);
     }
 
     final boolean hasRequiredAnnotation =
@@ -42,6 +42,17 @@ public class TestTypeUsageExtractor {
             .map(ClassOrInterfaceType::getNameAsString)
             .collect(Collectors.toSet());
 
-    return new TestTypeUsage(hasRequiredAnnotation, referencedTypeNames);
+    final String fqcn = buildFullyQualifiedClassName(compilationUnit, classDecl);
+
+    return new TestTypeUsage(hasRequiredAnnotation, referencedTypeNames, fqcn);
+  }
+
+  private String buildFullyQualifiedClassName(
+      final CompilationUnit compilationUnit, final ClassOrInterfaceDeclaration classDecl) {
+    final String className = classDecl.getNameAsString();
+    return compilationUnit
+        .getPackageDeclaration()
+        .map(pkg -> pkg.getNameAsString() + "." + className)
+        .orElse(className);
   }
 }

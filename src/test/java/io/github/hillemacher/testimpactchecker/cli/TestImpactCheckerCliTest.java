@@ -274,6 +274,173 @@ class TestImpactCheckerCliTest {
     assertThat(html).contains("Impact graph");
   }
 
+  /** Ensures {@code --format json} emits a versioned schema to stdout. */
+  @Test
+  void testMainFormatJsonWritesSchemaToStdout() throws IOException {
+    final Path projectPath = tempDir.resolve("project-json-stdout");
+    final Path configPath = writeConfig(projectPath);
+
+    final String output =
+        executeCliAndCaptureStdout(
+            projectPath,
+            new String[] {
+              "-p", projectPath.toString(),
+              "-c", configPath.toString(),
+              "--format", "json"
+            });
+
+    assertThat(output).contains("\"schemaVersion\" : 1");
+    assertThat(output).contains("\"file\" : \"module/src/test/java/a/TestA.java\"");
+    assertThat(output).contains("\"fqcn\" : \"com.example.TestA\"");
+    assertThat(output).contains("\"causes\"");
+    assertThat(output).contains("\"impactedTestCount\" : 2");
+    assertThat(output).doesNotContain("Relevant tests and impact causes:");
+  }
+
+  /** Ensures {@code --format json --format-out} writes the JSON to a file. */
+  @Test
+  void testMainFormatJsonWritesToFile() throws IOException {
+    final Path projectPath = tempDir.resolve("project-json-file");
+    final Path configPath = writeConfig(projectPath);
+    final Path jsonPath = projectPath.resolve("out/impact.json");
+
+    final String output =
+        executeCliAndCaptureStdout(
+            projectPath,
+            new String[] {
+              "-p",
+              projectPath.toString(),
+              "-c",
+              configPath.toString(),
+              "--format",
+              "json",
+              "--format-out",
+              "out/impact.json"
+            });
+
+    assertThat(jsonPath).exists();
+    final String json = Files.readString(jsonPath, StandardCharsets.UTF_8);
+    assertThat(json).contains("\"schemaVersion\" : 1");
+    assertThat(json).contains("\"impactedTests\"");
+    assertThat(output).doesNotContain("\"schemaVersion\"");
+  }
+
+  /** Ensures {@code --format gradle-filter} emits one FQCN per line, sorted. */
+  @Test
+  void testMainFormatGradleFilterEmitsFqcnsPerLine() throws IOException {
+    final Path projectPath = tempDir.resolve("project-gradle");
+    final Path configPath = writeConfig(projectPath);
+
+    final String output =
+        executeCliAndCaptureStdout(
+            projectPath,
+            new String[] {
+              "-p", projectPath.toString(),
+              "-c", configPath.toString(),
+              "--format", "gradle-filter"
+            });
+
+    final int indexTestA = output.indexOf("com.example.TestA");
+    final int indexTestB = output.indexOf("com.example.TestB");
+    assertThat(indexTestA).isGreaterThanOrEqualTo(0);
+    assertThat(indexTestB).isGreaterThan(indexTestA);
+    assertThat(output).doesNotContain("Relevant tests and impact causes:");
+  }
+
+  /** Ensures {@code --format junit-includes} emits Surefire-style include patterns. */
+  @Test
+  void testMainFormatJunitIncludesEmitsIncludePatterns() throws IOException {
+    final Path projectPath = tempDir.resolve("project-junit");
+    final Path configPath = writeConfig(projectPath);
+
+    final String output =
+        executeCliAndCaptureStdout(
+            projectPath,
+            new String[] {
+              "-p", projectPath.toString(),
+              "-c", configPath.toString(),
+              "--format", "junit-includes"
+            });
+
+    assertThat(output).contains("**/TestA.class");
+    assertThat(output).contains("**/TestB.class");
+    assertThat(output).doesNotContain("Relevant tests and impact causes:");
+  }
+
+  /** Ensures pairing human on stdout with json on file writes both artifacts. */
+  @Test
+  void testMainMultipleFormatsHumanStdoutAndJsonFile() throws IOException {
+    final Path projectPath = tempDir.resolve("project-multi");
+    final Path configPath = writeConfig(projectPath);
+    final Path jsonPath = projectPath.resolve("out/impact.json");
+
+    final String output =
+        executeCliAndCaptureStdout(
+            projectPath,
+            new String[] {
+              "-p", projectPath.toString(),
+              "-c", configPath.toString(),
+              "--format", "human",
+              "--format-out", "",
+              "--format", "json",
+              "--format-out", "out/impact.json"
+            });
+
+    assertThat(output).contains("Relevant tests and impact causes:");
+    assertThat(jsonPath).exists();
+  }
+
+  /** Verifies that rejecting two formats both targeting stdout exits without producing output. */
+  @Test
+  void testMainRejectsMultipleFormatsOnStdout() throws IOException {
+    final Path projectPath = tempDir.resolve("project-multi-stdout");
+    Files.createDirectories(projectPath);
+    final Path configPath = writeConfig(projectPath);
+
+    final ByteArrayOutputStream stdout = new ByteArrayOutputStream();
+    final PrintStream originalOut = System.out;
+    System.setOut(new PrintStream(stdout, true, StandardCharsets.UTF_8));
+    try {
+      TestImpactCheckerCli.main(
+          new String[] {
+            "-p",
+            projectPath.toString(),
+            "-c",
+            configPath.toString(),
+            "--format",
+            "human",
+            "--format",
+            "json"
+          });
+    } finally {
+      System.setOut(originalOut);
+    }
+    final String output = stdout.toString(StandardCharsets.UTF_8);
+    assertThat(output).doesNotContain("Relevant tests and impact causes:");
+    assertThat(output).doesNotContain("\"schemaVersion\"");
+  }
+
+  /** Ensures the legacy default invocation still emits the exact historical stdout report. */
+  @Test
+  void testMainDefaultHumanOutputMatchesExplicitHumanFlag() throws IOException {
+    final Path projectPath = tempDir.resolve("project-human-parity");
+    final Path configPath = writeConfig(projectPath);
+
+    final String defaultOutput =
+        executeCliAndCaptureStdout(
+            projectPath, new String[] {"-p", projectPath.toString(), "-c", configPath.toString()});
+    final String explicitOutput =
+        executeCliAndCaptureStdout(
+            projectPath,
+            new String[] {
+              "-p", projectPath.toString(),
+              "-c", configPath.toString(),
+              "--format", "human"
+            });
+
+    assertThat(explicitOutput).isEqualTo(defaultOutput);
+  }
+
   private String executeCliAndCaptureStdout(final Path projectPath, final String[] args) {
     return executeCliAndCaptureStdout(projectPath, createDefaultImpacts(projectPath), args);
   }
@@ -281,6 +448,7 @@ class TestImpactCheckerCliTest {
   private String executeCliAndCaptureStdout(
       final Path projectPath, final Map<Path, Set<String>> impacts, final String[] args) {
     final Map<String, Set<String>> impactedTypeToCauses = createDefaultImpactedTypeToCauses();
+    final Map<Path, String> testFileToFqcn = createDefaultTestFileToFqcn(impacts);
 
     final ByteArrayOutputStream stdout = new ByteArrayOutputStream();
     final PrintStream originalOut = System.out;
@@ -290,7 +458,8 @@ class TestImpactCheckerCliTest {
             TestImpactChecker.class,
             (mock, context) -> {
               when(mock.detectImpactReportData(any(Path.class), any(ImpactCheckerConfig.class)))
-                  .thenReturn(new ImpactDetectionReportData(impacts, impactedTypeToCauses));
+                  .thenReturn(
+                      new ImpactDetectionReportData(impacts, impactedTypeToCauses, testFileToFqcn));
             })) {
       TestImpactCheckerCli.main(args);
       assertThat(construction.constructed()).hasSize(1);
@@ -298,6 +467,22 @@ class TestImpactCheckerCliTest {
     } finally {
       System.setOut(originalOut);
     }
+  }
+
+  private Map<Path, String> createDefaultTestFileToFqcn(final Map<Path, Set<String>> impacts) {
+    final Map<Path, String> fqcns = new LinkedHashMap<>();
+    impacts
+        .keySet()
+        .forEach(
+            path -> {
+              final String fileName = path.getFileName().toString();
+              final String simple =
+                  fileName.endsWith(".java")
+                      ? fileName.substring(0, fileName.length() - ".java".length())
+                      : fileName;
+              fqcns.put(path, "com.example." + simple);
+            });
+    return fqcns;
   }
 
   private Map<Path, Set<String>> createDefaultImpacts(final Path projectPath) {

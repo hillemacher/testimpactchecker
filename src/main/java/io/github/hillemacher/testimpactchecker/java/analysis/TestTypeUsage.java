@@ -7,5 +7,8 @@ import java.util.Set;
  *
  * @param hasRequiredAnnotation whether the test has any configured impact annotation
  * @param referencedTypes simple type names referenced by the test
+ * @param fullyQualifiedClassName FQCN of the primary test class, or {@code null} if it could not be
+ *     determined (for example, missing class declaration)
  */
-public record TestTypeUsage(boolean hasRequiredAnnotation, Set<String> referencedTypes) {}
+public record TestTypeUsage(
+    boolean hasRequiredAnnotation, Set<String> referencedTypes, String fullyQualifiedClassName) {}
