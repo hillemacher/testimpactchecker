@@ -6,10 +6,14 @@ import io.github.hillemacher.testimpactchecker.config.ImpactCheckerConfig;
 import io.github.hillemacher.testimpactchecker.java.JavaImpactUtils;
 import io.github.hillemacher.testimpactchecker.java.analysis.ImpactAnalysisEngine;
 import io.github.hillemacher.testimpactchecker.java.analysis.ImpactAnalysisResult;
+import io.github.hillemacher.testimpactchecker.java.analysis.cache.JsonFileTypeIndexCache;
+import io.github.hillemacher.testimpactchecker.java.analysis.cache.NoOpTypeIndexCache;
+import io.github.hillemacher.testimpactchecker.java.analysis.cache.TypeIndexCache;
 import java.io.File;
 import java.io.IOException;
 import java.nio.file.Files;
 import java.nio.file.Path;
+import java.util.Comparator;
 import java.util.HashSet;
 import java.util.Map;
 import java.util.Set;
@@ -20,35 +24,31 @@ import lombok.extern.slf4j.Slf4j;
 @Slf4j
 public class TestImpactChecker {
 
+  /** Default cache directory name relative to the project path. */
+  public static final String CACHE_DIRECTORY_NAME = ".testimpactchecker/cache";
+
+  /** Default cache file name inside the cache directory. */
+  public static final String TYPE_INDEX_CACHE_FILE = "type-index.v1.json";
+
   private static final String MAIN_JAVA_DIR_SUFFIX = "src/main/java";
   private static final String TEST_JAVA_DIR_SUFFIX = "src/test/java";
 
   /**
-   * Detects and returns the set of test files that are impacted by changes in the main Java source
-   * files of the specified repository.
-   *
-   * <p>This method performs the following steps:
-   *
-   * <ol>
-   *   <li>Recursively locates all {@code src/main/java} and {@code src/test/java} directories
-   *       within the repository.
-   *   <li>Identifies changed Java class files under all {@code src/main/java} directories using
-   *       Git.
-   *   <li>If no changed classes are found or the repository cannot be accessed, returns an empty
-   *       set.
-   *   <li>For each changed class, determines its implemented interfaces.
-   *   <li>Scans all test classes for relevant annotations and references to the changed classes or
-   *       their implemented interfaces, and collects the test files that are likely to be impacted.
-   * </ol>
-   *
-   * <p>The result is a set of paths to test files that are potentially affected by the changes.
-   *
-   * @param repositoryPath the root path of the repository to scan
-   * @param impactCheckerConfig configuration defining annotations, Git refs, and analysis controls
-   * @return a set of paths to impacted test files; returns an empty set if no changed classes are
-   *     detected
-   * @throws IOException if file system operations fail while scanning source directories
+   * Cache policy controlling whether analysis reads from, writes to, or verifies the persistent
+   * type-index cache.
    */
+  public enum CacheMode {
+    /** Use the persistent cache at {@code <project>/.testimpactchecker/cache/}. */
+    ENABLED,
+    /** Bypass the cache entirely — no reads, no writes. */
+    DISABLED,
+    /**
+     * Run the analysis twice (uncached then cached) and assert both produce equal results. Useful
+     * as a one-off correctness check before trusting the cache in CI.
+     */
+    VERIFY
+  }
+
   public Set<Path> detectImpact(
       final Path repositoryPath, final ImpactCheckerConfig impactCheckerConfig) throws IOException {
     return new HashSet<>(
@@ -57,18 +57,15 @@ public class TestImpactChecker {
             .keySet());
   }
 
-  /**
-   * Detects impacted tests and returns each impacted test with the changed classes that caused it.
-   *
-   * @param repositoryPath the root path of the repository to scan
-   * @param impactCheckerConfig configuration for annotations and git refs
-   * @return a map where the key is an impacted test path and the value is the set of changed class
-   *     names causing the impact
-   * @throws IOException if file system operations fail while scanning source directories
-   */
   public Map<Path, Set<String>> detectImpactWithCauses(
       final Path repositoryPath, final ImpactCheckerConfig impactCheckerConfig) throws IOException {
     return detectImpactReportData(repositoryPath, impactCheckerConfig).relevantTestsWithCauses();
+  }
+
+  /** Runs impact detection with the default cache mode ({@link CacheMode#ENABLED}). */
+  public ImpactDetectionReportData detectImpactReportData(
+      final Path repositoryPath, final ImpactCheckerConfig impactCheckerConfig) throws IOException {
+    return detectImpactReportData(repositoryPath, impactCheckerConfig, CacheMode.ENABLED);
   }
 
   /**
@@ -76,15 +73,16 @@ public class TestImpactChecker {
    *
    * @param repositoryPath the root path of the repository to scan
    * @param impactCheckerConfig configuration for annotations and git refs
+   * @param cacheMode how the persistent main-source index cache should be used
    * @return report-ready impact model containing impacted tests and impacted types with causes
    * @throws IOException if file system operations fail while scanning source directories
    */
   public ImpactDetectionReportData detectImpactReportData(
-      final Path repositoryPath, final ImpactCheckerConfig impactCheckerConfig) throws IOException {
+      final Path repositoryPath,
+      final ImpactCheckerConfig impactCheckerConfig,
+      final CacheMode cacheMode)
+      throws IOException {
     log.info("Discovering Java source directories under {}", repositoryPath);
-    final JavaImpactUtils javaImpactUtils = createJavaImpactUtils(impactCheckerConfig);
-
-    // 1. Find all src/main/java directories in project (recursively)
     final Set<Path> mainJavaDirs = findAllJavaSourceDirs(repositoryPath, MAIN_JAVA_DIR_SUFFIX);
     final Set<Path> testJavaDirs = findAllJavaSourceDirs(repositoryPath, TEST_JAVA_DIR_SUFFIX);
     log.info(
@@ -94,20 +92,98 @@ public class TestImpactChecker {
     log.debug("Main Java source directories: {}", mainJavaDirs);
     log.debug("Test Java source directories: {}", testJavaDirs);
 
-    final ImpactAnalysisEngine impactAnalysisEngine = javaImpactUtils.createEngine();
-    final ImpactAnalysisResult impactAnalysisResult =
-        impactAnalysisEngine.analyzeImpact(repositoryPath, mainJavaDirs, testJavaDirs);
-    final Map<Path, Set<String>> relevantTestsWithCauses =
-        impactAnalysisResult.relevantTestsWithCauses();
-    log.info("Detected {} impacted tests", relevantTestsWithCauses.size());
-    log.debug("Impacted tests with causes: {}", relevantTestsWithCauses);
-    return new ImpactDetectionReportData(
-        relevantTestsWithCauses,
-        impactAnalysisResult.propagationResult().impactedTypeToCauses(),
-        impactAnalysisResult.testFileToFqcn());
+    final JavaImpactUtils javaImpactUtils = createJavaImpactUtils(impactCheckerConfig);
+
+    if (cacheMode == CacheMode.VERIFY) {
+      log.info("Running analysis twice to verify cache parity");
+      final ImpactAnalysisResult uncached =
+          runAnalysis(
+              javaImpactUtils,
+              new NoOpTypeIndexCache(),
+              repositoryPath,
+              mainJavaDirs,
+              testJavaDirs);
+      final ImpactAnalysisResult cached =
+          runAnalysis(
+              javaImpactUtils,
+              openCache(repositoryPath),
+              repositoryPath,
+              mainJavaDirs,
+              testJavaDirs);
+      assertCacheParity(uncached, cached);
+      return toReportData(cached);
+    }
+
+    final TypeIndexCache typeIndexCache =
+        cacheMode == CacheMode.ENABLED ? openCache(repositoryPath) : new NoOpTypeIndexCache();
+    final ImpactAnalysisResult result =
+        runAnalysis(javaImpactUtils, typeIndexCache, repositoryPath, mainJavaDirs, testJavaDirs);
+    return toReportData(result);
   }
 
-  // Recursively find all src/main/java or src/test/java dirs from a given root
+  /** Deletes the cache directory for the given project; safe to call when it does not exist. */
+  public static void clearCache(final Path repositoryPath) throws IOException {
+    final Path cacheDir = repositoryPath.resolve(CACHE_DIRECTORY_NAME);
+    if (!Files.exists(cacheDir)) {
+      return;
+    }
+    try (final Stream<Path> paths = Files.walk(cacheDir)) {
+      paths
+          .sorted(Comparator.reverseOrder())
+          .forEach(
+              p -> {
+                try {
+                  Files.deleteIfExists(p);
+                } catch (final IOException e) {
+                  throw new RuntimeException(e);
+                }
+              });
+    }
+  }
+
+  private ImpactAnalysisResult runAnalysis(
+      final JavaImpactUtils javaImpactUtils,
+      final TypeIndexCache typeIndexCache,
+      final Path repositoryPath,
+      final Set<Path> mainJavaDirs,
+      final Set<Path> testJavaDirs) {
+    final ImpactAnalysisEngine engine = javaImpactUtils.createEngine(typeIndexCache);
+    final ImpactAnalysisResult result =
+        engine.analyzeImpact(repositoryPath, mainJavaDirs, testJavaDirs);
+    log.info("Detected {} impacted tests", result.relevantTestsWithCauses().size());
+    log.debug("Impacted tests with causes: {}", result.relevantTestsWithCauses());
+    return result;
+  }
+
+  private static ImpactDetectionReportData toReportData(final ImpactAnalysisResult result) {
+    return new ImpactDetectionReportData(
+        result.relevantTestsWithCauses(),
+        result.propagationResult().impactedTypeToCauses(),
+        result.testFileToFqcn());
+  }
+
+  private static TypeIndexCache openCache(final Path repositoryPath) {
+    final Path cacheFile =
+        repositoryPath.resolve(CACHE_DIRECTORY_NAME).resolve(TYPE_INDEX_CACHE_FILE);
+    return new JsonFileTypeIndexCache(cacheFile);
+  }
+
+  private static void assertCacheParity(
+      final ImpactAnalysisResult uncached, final ImpactAnalysisResult cached) {
+    if (!uncached.relevantTestsWithCauses().equals(cached.relevantTestsWithCauses())) {
+      throw new IllegalStateException(
+          "Cache verification failed: impacted-tests set differs between cached and uncached runs");
+    }
+    if (!uncached
+        .propagationResult()
+        .impactedTypeToCauses()
+        .equals(cached.propagationResult().impactedTypeToCauses())) {
+      throw new IllegalStateException(
+          "Cache verification failed: impacted-types set differs between cached and uncached runs");
+    }
+    log.info("Cache verification passed: cached and uncached results are identical");
+  }
+
   private Set<Path> findAllJavaSourceDirs(final Path root, final String part) {
     final Set<Path> dirs = new HashSet<>();
     try (final Stream<Path> paths = Files.walk(root)) {
@@ -118,7 +194,6 @@ public class TestImpactChecker {
     } catch (final IOException e) {
       log.error("Cannot find Java source files", e);
     }
-
     return dirs;
   }
 

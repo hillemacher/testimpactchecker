@@ -457,7 +457,10 @@ class TestImpactCheckerCliTest {
         Mockito.mockConstruction(
             TestImpactChecker.class,
             (mock, context) -> {
-              when(mock.detectImpactReportData(any(Path.class), any(ImpactCheckerConfig.class)))
+              when(mock.detectImpactReportData(
+                      any(Path.class),
+                      any(ImpactCheckerConfig.class),
+                      any(TestImpactChecker.CacheMode.class)))
                   .thenReturn(
                       new ImpactDetectionReportData(impacts, impactedTypeToCauses, testFileToFqcn));
             })) {

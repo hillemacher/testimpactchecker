@@ -10,6 +10,8 @@ import io.github.hillemacher.testimpactchecker.java.analysis.TestImpactEvaluator
 import io.github.hillemacher.testimpactchecker.java.analysis.TestMockUsageExtractor;
 import io.github.hillemacher.testimpactchecker.java.analysis.TestTypeUsageExtractor;
 import io.github.hillemacher.testimpactchecker.java.analysis.TransitiveImpactPropagator;
+import io.github.hillemacher.testimpactchecker.java.analysis.cache.NoOpTypeIndexCache;
+import io.github.hillemacher.testimpactchecker.java.analysis.cache.TypeIndexCache;
 import java.nio.file.Path;
 import java.util.Collection;
 import java.util.HashSet;
@@ -119,12 +121,23 @@ public class JavaImpactUtils {
    * @return configured {@link ImpactAnalysisEngine} instance
    */
   public ImpactAnalysisEngine createEngine() {
+    return createEngine(new NoOpTypeIndexCache());
+  }
+
+  /**
+   * Creates a fully wired analysis engine using the provided main-source index cache.
+   *
+   * @param typeIndexCache cache used to skip re-parsing unchanged main-source files; pass a {@link
+   *     NoOpTypeIndexCache} to disable caching
+   * @return configured {@link ImpactAnalysisEngine} instance
+   */
+  public ImpactAnalysisEngine createEngine(final TypeIndexCache typeIndexCache) {
     return new ImpactAnalysisEngine(
         javaParser,
         impactCheckerConfig,
         new ChangedClassLocator(impactCheckerConfig),
         new ChangedTypeSeedResolver(javaParser),
-        new MainSourceIndexBuilder(javaParser),
+        new MainSourceIndexBuilder(javaParser, typeIndexCache),
         new TransitiveImpactPropagator(),
         new TestTypeUsageExtractor(impactCheckerConfig),
         new TestMockUsageExtractor(),

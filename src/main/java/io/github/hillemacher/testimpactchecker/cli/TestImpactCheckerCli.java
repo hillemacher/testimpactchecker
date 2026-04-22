@@ -117,11 +117,18 @@ public class TestImpactCheckerCli {
       final List<OutputTarget> outputTargets = parseOutputTargets(cmd);
       stdoutTargetIsHuman = determineStdoutTargetIsHuman(outputTargets);
 
+      final Path normalizedProjectPath = projectPath.toAbsolutePath().normalize();
+      if (cmd.hasOption("clear-cache")) {
+        TestImpactChecker.clearCache(normalizedProjectPath);
+        log.info("Cleared type-index cache under {}", normalizedProjectPath);
+      }
+
+      final TestImpactChecker.CacheMode cacheMode = resolveCacheMode(cmd);
       final TestImpactChecker testImpactChecker = new TestImpactChecker();
-      log.info("Running impact detection");
+      log.info("Running impact detection (cache mode: {})", cacheMode);
       final ImpactDetectionReportData impactDetectionReportData =
           testImpactChecker.detectImpactReportData(
-              projectPath.toAbsolutePath().normalize(), impactCheckerConfig);
+              normalizedProjectPath, impactCheckerConfig, cacheMode);
       log.info(
           "Impact detection completed: {} impacted tests found",
           impactDetectionReportData.relevantTestsWithCauses().size());
@@ -161,6 +168,21 @@ public class TestImpactCheckerCli {
       System.out.println();
     }
     log.info("Finished impact analysis {}", success ? "with success" : "with problems");
+  }
+
+  private static TestImpactChecker.CacheMode resolveCacheMode(final CommandLine cmd) {
+    final boolean noCache = cmd.hasOption("no-cache");
+    final boolean verify = cmd.hasOption("verify-cache");
+    if (noCache && verify) {
+      throw new IllegalArgumentException("--no-cache and --verify-cache are mutually exclusive");
+    }
+    if (verify) {
+      return TestImpactChecker.CacheMode.VERIFY;
+    }
+    if (noCache) {
+      return TestImpactChecker.CacheMode.DISABLED;
+    }
+    return TestImpactChecker.CacheMode.ENABLED;
   }
 
   private static Optional<String> resolveHtmlReportOutputPath(
@@ -351,6 +373,23 @@ public class TestImpactCheckerCli {
             .desc(
                 "Output path for the matching --format entry. Omit to write that format to stdout."
                     + " Only one format may target stdout per run.")
+            .build());
+    options.addOption(
+        Option.builder()
+            .longOpt("no-cache")
+            .desc("Disable the persistent main-source index cache for this run.")
+            .build());
+    options.addOption(
+        Option.builder()
+            .longOpt("clear-cache")
+            .desc("Delete the persistent cache directory before running analysis.")
+            .build());
+    options.addOption(
+        Option.builder()
+            .longOpt("verify-cache")
+            .desc(
+                "Run analysis twice (uncached then cached) and assert parity; fails on mismatch."
+                    + " Useful as a one-off correctness check in CI.")
             .build());
 
     // Path argument (required)
