@@ -28,6 +28,8 @@ Run the tool with the path to your project and the configuration JSON file as ar
 - `-p <projectPath>` or `--project <projectPath>`: Path to the root of the project to analyze. **(Required)**
 - `-c <configPath>` or `--config <configPath>`: Path to the JSON configuration file. **(Required)**
 - `--html-report <path-or-directory>`: Optional output path for a static HTML report. If a directory is provided, the report file name defaults to `impact-report.html`. This overrides the config value `htmlReportOutputPath` when both are set.
+- `--format <value>`: Output format. One of `human` (default), `json`, `gradle-filter`, `junit-includes`. Repeatable — use multiple times to emit more than one format in a single run.
+- `--format-out <path>`: Output path for the matching `--format` at the same position. Omit (or pass an empty string) to let that format write to stdout. Only one format may target stdout per run. Relative paths are resolved from `--project`.
 - `-d` or `--debug`: Enable debug logging with detailed diagnostics. *(Optional)*
 - `-h` or `--help`: Show help and usage information.
 
@@ -43,6 +45,26 @@ foo/src/test/java/TestA.java
 foo/src/test/java/TestB.java
   caused by: B, C
 ----------------- ----------------- -----------------
+```
+
+### Output Formats
+
+- `human` *(default)*: Grouped, human-readable table written to stdout — identical to the output the tool produced before `--format` was introduced.
+- `json`: Versioned JSON document (`schemaVersion: 1`) with `impactedTests` (each entry has `file`, `fqcn`, `causes`) and a `stats` block. Use this as a stable CI artifact.
+- `gradle-filter`: One fully-qualified test class name per line, ready to be passed to `./gradlew test --tests <fqcn>`.
+- `junit-includes`: One Surefire-style include glob per line (e.g. `**/FooTest.class`).
+
+Examples:
+
+```bash
+# Write JSON to a file and keep the human-readable table on stdout
+java -jar TestImpactChecker-CLI.jar -p . -c config.json \
+  --format human \
+  --format json --format-out build/impact.json
+
+# Pipe impacted test classes straight into Gradle
+./gradlew test $(java -jar TestImpactChecker-CLI.jar -p . -c config.json \
+  --format gradle-filter | sed 's/^/--tests /' | tr '\n' ' ')
 ```
 
 ### Report Output

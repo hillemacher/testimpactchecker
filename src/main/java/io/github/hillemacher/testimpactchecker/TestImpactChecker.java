@@ -102,7 +102,9 @@ public class TestImpactChecker {
     log.info("Detected {} impacted tests", relevantTestsWithCauses.size());
     log.debug("Impacted tests with causes: {}", relevantTestsWithCauses);
     return new ImpactDetectionReportData(
-        relevantTestsWithCauses, impactAnalysisResult.propagationResult().impactedTypeToCauses());
+        relevantTestsWithCauses,
+        impactAnalysisResult.propagationResult().impactedTypeToCauses(),
+        impactAnalysisResult.testFileToFqcn());
   }
 
   // Recursively find all src/main/java or src/test/java dirs from a given root

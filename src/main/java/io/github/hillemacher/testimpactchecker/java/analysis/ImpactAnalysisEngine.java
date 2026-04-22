@@ -59,6 +59,10 @@ public class ImpactAnalysisEngine {
     return analyzeImpact(repositoryPath, mainJavaDirs, testJavaDirs).relevantTestsWithCauses();
   }
 
+  /** Internal holder for per-test analysis artifacts produced while scanning test sources. */
+  private record TestAnalysisOutput(
+      Map<Path, Set<String>> relevantTestsWithCauses, Map<Path, String> testFileToFqcn) {}
+
   /**
    * Runs end-to-end impact analysis and returns both impacted tests and propagated type topology.
    *
@@ -72,7 +76,8 @@ public class ImpactAnalysisEngine {
     final Set<Path> changedClassPaths =
         changedClassLocator.findChangedClassPaths(mainJavaDirs, repositoryPath);
     if (changedClassPaths.isEmpty()) {
-      return new ImpactAnalysisResult(Map.of(), new ImpactPropagationResult(Map.of(), Map.of()));
+      return new ImpactAnalysisResult(
+          Map.of(), new ImpactPropagationResult(Map.of(), Map.of()), Map.of());
     }
 
     final ChangedTypeSeedData changedTypeSeedData =
@@ -80,13 +85,16 @@ public class ImpactAnalysisEngine {
     final ImpactPropagationResult propagationResult =
         buildPropagationResult(changedTypeSeedData, mainJavaDirs);
 
-    final Map<Path, Set<String>> relevantTestsWithCauses =
+    final TestAnalysisOutput testAnalysisOutput =
         analyzeTests(
             propagationResult,
             changedTypeSeedData.changedClassNames(),
             testJavaDirs,
             resolveMockPolicy());
-    return new ImpactAnalysisResult(relevantTestsWithCauses, propagationResult);
+    return new ImpactAnalysisResult(
+        testAnalysisOutput.relevantTestsWithCauses(),
+        propagationResult,
+        testAnalysisOutput.testFileToFqcn());
   }
 
   /**
@@ -137,10 +145,11 @@ public class ImpactAnalysisEngine {
         });
 
     return analyzeTests(
-        new ImpactPropagationResult(impactedTypeToCauses, witnessPathsByTypeAndCause),
-        changedClassNames,
-        testDirPaths,
-        mockPolicy);
+            new ImpactPropagationResult(impactedTypeToCauses, witnessPathsByTypeAndCause),
+            changedClassNames,
+            testDirPaths,
+            mockPolicy)
+        .relevantTestsWithCauses();
   }
 
   private ImpactPropagationResult buildPropagationResult(
@@ -176,12 +185,13 @@ public class ImpactAnalysisEngine {
     return new ImpactPropagationResult(impactedTypeToCauses, witnessPathsByTypeAndCause);
   }
 
-  private Map<Path, Set<String>> analyzeTests(
+  private TestAnalysisOutput analyzeTests(
       final ImpactPropagationResult propagationResult,
       final Set<String> changedClassNames,
       final Set<Path> testDirPaths,
       final MockPolicy mockPolicy) {
     final Map<Path, Set<String>> relevantTestsWithCauses = new HashMap<>();
+    final Map<Path, String> testFileToFqcn = new HashMap<>();
     final Set<Path> allTestFiles = new HashSet<>();
     testDirPaths.forEach(testDirPath -> allTestFiles.addAll(getAllJavaFiles(testDirPath)));
 
@@ -209,10 +219,13 @@ public class ImpactAnalysisEngine {
 
       if (!causesForTest.isEmpty()) {
         relevantTestsWithCauses.put(testFilePath, causesForTest);
+        if (testTypeUsage.fullyQualifiedClassName() != null) {
+          testFileToFqcn.put(testFilePath, testTypeUsage.fullyQualifiedClassName());
+        }
       }
     }
 
-    return relevantTestsWithCauses;
+    return new TestAnalysisOutput(relevantTestsWithCauses, testFileToFqcn);
   }
 
   private ParseResult<CompilationUnit> parseJavaSourceFile(final Path javaSourceFile) {

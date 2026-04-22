@@ -3,20 +3,26 @@ package io.github.hillemacher.testimpactchecker.cli;
 import com.fasterxml.jackson.databind.ObjectMapper;
 import io.github.hillemacher.testimpactchecker.ImpactDetectionReportData;
 import io.github.hillemacher.testimpactchecker.TestImpactChecker;
+import io.github.hillemacher.testimpactchecker.cli.output.OutputFormat;
+import io.github.hillemacher.testimpactchecker.cli.output.OutputFormatter;
+import io.github.hillemacher.testimpactchecker.cli.output.OutputFormatters;
 import io.github.hillemacher.testimpactchecker.config.ImpactCheckerConfig;
 import io.github.hillemacher.testimpactchecker.report.HtmlImpactReportRenderer;
 import io.github.hillemacher.testimpactchecker.report.ImpactReport;
 import io.github.hillemacher.testimpactchecker.report.ImpactReportMapper;
 import io.github.hillemacher.testimpactchecker.report.ImpactReportWriter;
+import java.io.BufferedWriter;
 import java.io.IOException;
+import java.io.OutputStreamWriter;
+import java.io.Writer;
+import java.nio.charset.StandardCharsets;
+import java.nio.file.Files;
 import java.nio.file.Path;
 import java.nio.file.Paths;
 import java.time.ZoneId;
-import java.util.Comparator;
-import java.util.Map;
+import java.util.ArrayList;
+import java.util.List;
 import java.util.Optional;
-import java.util.Set;
-import java.util.stream.Collectors;
 import lombok.NonNull;
 import lombok.extern.slf4j.Slf4j;
 import org.apache.commons.cli.CommandLine;
@@ -40,12 +46,15 @@ public class TestImpactCheckerCli {
   private static final String SIMPLE_LOGGER_SHOW_THREAD_NAME =
       "org.slf4j.simpleLogger.showThreadName";
 
+  private static final String SEPARATOR = "----------------- ----------------- -----------------";
+
   /**
    * Entry point for the ChangedClassTestDetectorCLI command-line tool.
    *
    * <p>This method parses command-line arguments, loads configuration from a JSON file, and
-   * determines which test classes are relevant based on detected changes in the project. It prints
-   * the list of relevant test files to standard output and logs important steps and errors.
+   * determines which test classes are relevant based on detected changes in the project. It writes
+   * the list of relevant test files using the configured output format(s) and logs important steps
+   * and errors.
    *
    * <h2>Command-Line Arguments</h2>
    *
@@ -55,21 +64,15 @@ public class TestImpactCheckerCli {
    *   <li><b>--html-report &lt;path-or-directory&gt;</b> : Optional path for a static HTML impact
    *       report. If a directory is given, {@code impact-report.html} is used. This overrides the
    *       optional config field {@code htmlReportOutputPath}.
+   *   <li><b>--format &lt;value&gt;</b> : Optional, repeatable. One of {@code human}, {@code json},
+   *       {@code gradle-filter}, {@code junit-includes}. Defaults to {@code human} written to
+   *       stdout.
+   *   <li><b>--format-out &lt;path&gt;</b> : Optional, repeatable. Output path for the matching
+   *       {@code --format} entry at the same position; omit to let that entry write to stdout. Only
+   *       one format may target stdout per run.
    *   <li><b>-d</b> or <b>--debug</b> : Enables debug logging with detailed diagnostics.
    *   <li><b>-h</b> : Shows help and usage information.
    * </ul>
-   *
-   * <h2>Processing Steps</h2>
-   *
-   * <ol>
-   *   <li>Parses CLI arguments and options.
-   *   <li>If the help option is present, prints usage instructions and exits.
-   *   <li>Verifies the existence of the project and config paths.
-   *   <li>Loads analysis configuration from the config file.
-   *   <li>Executes the test impact analysis using {@link TestImpactChecker}.
-   *   <li>Prints the relevant tests referencing changed classes to the terminal.
-   *   <li>Logs errors for missing or invalid options, parse exceptions, or file I/O issues.
-   * </ol>
    *
    * @param args the command-line arguments for the application
    */
@@ -79,6 +82,7 @@ public class TestImpactCheckerCli {
 
     final Options options = getOptions();
     boolean success = false;
+    boolean stdoutTargetIsHuman = true;
     try {
       final CommandLine cmd = parser.parse(options, args);
       configureLogging(cmd);
@@ -110,15 +114,17 @@ public class TestImpactCheckerCli {
           mapper.readValue(configPath.toFile(), ImpactCheckerConfig.class);
       log.info("Validated config path {}", normalizedConfigPath);
 
+      final List<OutputTarget> outputTargets = parseOutputTargets(cmd);
+      stdoutTargetIsHuman = determineStdoutTargetIsHuman(outputTargets);
+
       final TestImpactChecker testImpactChecker = new TestImpactChecker();
       log.info("Running impact detection");
       final ImpactDetectionReportData impactDetectionReportData =
           testImpactChecker.detectImpactReportData(
               projectPath.toAbsolutePath().normalize(), impactCheckerConfig);
-      final Map<Path, Set<String>> relevantTestsWithCauses =
-          impactDetectionReportData.relevantTestsWithCauses();
       log.info(
-          "Impact detection completed: {} impacted tests found", relevantTestsWithCauses.size());
+          "Impact detection completed: {} impacted tests found",
+          impactDetectionReportData.relevantTestsWithCauses().size());
 
       boolean htmlReportWrittenSuccessfully = true;
       final Optional<String> configuredHtmlReportOutputPath =
@@ -133,38 +139,27 @@ public class TestImpactCheckerCli {
                 impactDetectionReportData);
       }
 
-      System.out.println();
-      System.out.println("----------------- ----------------- -----------------");
-      System.out.println("Relevant tests and impact causes:");
-      if (relevantTestsWithCauses.isEmpty()) {
-        System.out.println("None found.");
-      } else {
-        relevantTestsWithCauses.entrySet().stream()
-            .sorted(
-                Comparator.comparing(
-                    entry -> toRelativePath(projectPath, entry.getKey()).toString()))
-            .forEach(
-                entry -> {
-                  final Path relativeTestPath = toRelativePath(projectPath, entry.getKey());
-                  final String causes =
-                      entry.getValue().stream().sorted().collect(Collectors.joining(", "));
-                  System.out.println(relativeTestPath);
-                  System.out.println("  caused by: " + causes);
-                });
-      }
-      success = htmlReportWrittenSuccessfully;
+      final boolean formatsWritten =
+          writeFormattedOutputs(projectPath, outputTargets, impactDetectionReportData);
+
+      success = htmlReportWrittenSuccessfully && formatsWritten;
     } catch (final MissingOptionException e) {
       log.error("Missing required option", e);
       formatter.printHelp("ChangedClassTestDetectorCLI", options, true);
     } catch (final ParseException e) {
       log.error("Error parsing command line", e);
       formatter.printHelp("ChangedClassTestDetectorCLI", options, true);
+    } catch (final IllegalArgumentException e) {
+      log.error("Invalid argument: {}", e.getMessage());
+      formatter.printHelp("ChangedClassTestDetectorCLI", options, true);
     } catch (final IOException e) {
       log.error("Cannot access config file", e);
     }
 
-    System.out.println("----------------- ----------------- -----------------");
-    System.out.println();
+    if (stdoutTargetIsHuman) {
+      System.out.println(SEPARATOR);
+      System.out.println();
+    }
     log.info("Finished impact analysis {}", success ? "with success" : "with problems");
   }
 
@@ -212,8 +207,106 @@ public class TestImpactCheckerCli {
     }
   }
 
-  private static Path toRelativePath(final Path projectPath, final Path path) {
-    return projectPath.toAbsolutePath().normalize().relativize(path.toAbsolutePath().normalize());
+  /**
+   * Parses the {@code --format} / {@code --format-out} option pairs. When neither is given, a
+   * single HUMAN-to-stdout target is returned so default behavior is preserved.
+   */
+  static List<OutputTarget> parseOutputTargets(final CommandLine cmd) {
+    final String[] rawFormats = cmd.getOptionValues("format");
+    final String[] rawOuts = cmd.getOptionValues("format-out");
+    final List<String> formats = rawFormats == null ? List.of() : List.of(rawFormats);
+    final List<String> outs = rawOuts == null ? List.of() : List.of(rawOuts);
+
+    if (formats.isEmpty() && outs.isEmpty()) {
+      return List.of(new OutputTarget(OutputFormat.HUMAN, null));
+    }
+
+    if (!outs.isEmpty() && outs.size() != formats.size()) {
+      throw new IllegalArgumentException(
+          "--format-out must appear the same number of times as --format (got "
+              + formats.size()
+              + " formats and "
+              + outs.size()
+              + " outputs)");
+    }
+
+    final List<OutputTarget> targets = new ArrayList<>();
+    int stdoutCount = 0;
+    for (int i = 0; i < formats.size(); i++) {
+      final OutputFormat format = OutputFormat.fromCli(formats.get(i));
+      final String outPath = outs.isEmpty() ? null : outs.get(i);
+      final String effectiveOut = (outPath == null || outPath.isBlank()) ? null : outPath;
+      if (effectiveOut == null) {
+        stdoutCount++;
+      }
+      targets.add(new OutputTarget(format, effectiveOut));
+    }
+
+    if (stdoutCount > 1) {
+      throw new IllegalArgumentException(
+          "Only one --format may target stdout (omit --format-out for at most one format)");
+    }
+    return targets;
+  }
+
+  private static boolean determineStdoutTargetIsHuman(final List<OutputTarget> targets) {
+    return targets.stream()
+        .filter(target -> target.outputPath() == null)
+        .findFirst()
+        .map(target -> target.format() == OutputFormat.HUMAN)
+        .orElse(false);
+  }
+
+  private static boolean writeFormattedOutputs(
+      final Path projectPath,
+      final List<OutputTarget> targets,
+      final ImpactDetectionReportData data) {
+    boolean allSucceeded = true;
+    for (final OutputTarget target : targets) {
+      final OutputFormatter formatter = OutputFormatters.forFormat(target.format());
+      if (target.outputPath() == null) {
+        final Writer writer = new OutputStreamWriter(System.out, StandardCharsets.UTF_8);
+        try {
+          formatter.write(projectPath, data, writer);
+          writer.flush();
+        } catch (final IOException e) {
+          log.error("Failed to write {} output to stdout", target.format().cliName(), e);
+          allSucceeded = false;
+        }
+      } else {
+        final Path outputPath = resolveFormatOutputPath(projectPath, target.outputPath());
+        try {
+          if (outputPath.getParent() != null) {
+            Files.createDirectories(outputPath.getParent());
+          }
+          try (final BufferedWriter writer =
+              Files.newBufferedWriter(outputPath, StandardCharsets.UTF_8)) {
+            formatter.write(projectPath, data, writer);
+          }
+          log.info(
+              "Wrote {} output to {}",
+              target.format().cliName(),
+              outputPath.toAbsolutePath().normalize());
+        } catch (final IOException e) {
+          log.error(
+              "Failed to write {} output to {}",
+              target.format().cliName(),
+              outputPath.toAbsolutePath().normalize(),
+              e);
+          allSucceeded = false;
+        }
+      }
+    }
+    return allSucceeded;
+  }
+
+  private static Path resolveFormatOutputPath(
+      final Path projectPath, final String configuredOutputPath) {
+    final Path candidate = Paths.get(configuredOutputPath);
+    if (candidate.isAbsolute()) {
+      return candidate;
+    }
+    return projectPath.toAbsolutePath().normalize().resolve(candidate).normalize();
   }
 
   private static void configureLogging(final CommandLine cmd) {
@@ -241,6 +334,24 @@ public class TestImpactCheckerCli {
             .argName("path-or-directory")
             .desc("Optional output path for static HTML report; directories use impact-report.html")
             .build());
+    options.addOption(
+        Option.builder()
+            .longOpt("format")
+            .hasArg()
+            .argName("value")
+            .desc(
+                "Output format: human (default), json, gradle-filter, junit-includes. "
+                    + "Repeatable; pair with --format-out at the same position to write to a file.")
+            .build());
+    options.addOption(
+        Option.builder()
+            .longOpt("format-out")
+            .hasArg()
+            .argName("path")
+            .desc(
+                "Output path for the matching --format entry. Omit to write that format to stdout."
+                    + " Only one format may target stdout per run.")
+            .build());
 
     // Path argument (required)
     options.addOption(
@@ -264,4 +375,7 @@ public class TestImpactCheckerCli {
 
     return options;
   }
+
+  /** One resolved {@code --format} entry paired with its optional destination path. */
+  record OutputTarget(OutputFormat format, String outputPath) {}
 }
