@@ -156,6 +156,57 @@ and `targetRef` to the desired branch, tag, or commit. For example, to compare c
 - A Git repository (with JGit-compatible structure)
 - Java source files organized under standard Maven/Gradle directories (`src/main/java`, `src/test/java`)
 
+## Gradle Plugin
+
+For Gradle projects, the same analysis is available as a plugin — no jar downloads, no shell glue, no hand-written `impact-config.json`.
+
+> **Status:** the plugin is **not yet published to the Gradle Plugin Portal**. Until it is, you can only consume it from a local Maven install. Portal publication is tracked as a follow-up; once it lands, the `plugins { id '…' version '…' }` block below will work without any extra `settings.gradle` wiring.
+>
+> To try it now, publish a snapshot to your local Maven repository:
+>
+> ```bash
+> git clone https://github.com/hillemacher/testimpactchecker.git
+> cd testimpactchecker
+> ./gradlew :plugin:publishToMavenLocal
+> ```
+>
+> Then, in your consumer project's `settings.gradle`, add `mavenLocal()` to `pluginManagement.repositories` (before `gradlePluginPortal()`):
+>
+> ```groovy
+> pluginManagement {
+>     repositories {
+>         mavenLocal()
+>         gradlePluginPortal()
+>     }
+> }
+> ```
+>
+> After that the plugin block below resolves normally from `~/.m2/`.
+
+```groovy
+plugins {
+    id 'java'
+    id 'io.github.hillemacher.testimpactchecker' version '<version>'
+}
+
+testImpact {
+    baseRef = 'origin/main'            // compared against HEAD by default
+    annotations = ['ContextConfiguration', 'IntegrationTest']
+    analysisMode = AnalysisMode.TRANSITIVE
+    applyTo(tasks.named('test', Test))
+}
+```
+
+After `applyTo(test)`:
+
+- `./gradlew test` runs **only** the impacted test classes by wiring their FQCNs into `test.filter.includeTestsMatching`.
+- If the impacted set is empty, the `test` task exits successfully without running anything (useful as a pre-push gate).
+- The plugin also registers a standalone `testImpactCheck` task that writes `build/test-impact/impact.json` (Phase 1 schema) and `build/test-impact/impact-report.html`.
+
+Extension properties mirror the CLI config: `baseRef`, `targetRef`, `annotations`, `analysisMode`, `mockPolicy`, `maxPropagationDepth`, `cacheMode`, plus Gradle-idiomatic `cacheDirectory`, `impactJsonOutput`, `impactHtmlOutput`, and `projectDirectory` (each a lazy `Property`/`DirectoryProperty`/`RegularFileProperty`). All have sensible conventions — typically only `baseRef` and `annotations` need to be set.
+
+The cache lives under `build/test-impact/cache/` by default, so `./gradlew clean` wipes it and Gradle's remote cache can share it across CI runners.
+
 ## Integration
 
 Integrate this tool into your CI pipeline to optimize test runs and accelerate feedback for developers. For example, you can use its output to trigger only impacted tests in your test runner.
