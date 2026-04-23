@@ -25,6 +25,7 @@ import org.gradle.api.tasks.Input;
 import org.gradle.api.tasks.Internal;
 import org.gradle.api.tasks.OutputFile;
 import org.gradle.api.tasks.TaskAction;
+import org.gradle.work.DisableCachingByDefault;
 
 /**
  * Gradle task that runs the Test Impact Checker against the current project and writes the JSON +
@@ -35,6 +36,10 @@ import org.gradle.api.tasks.TaskAction;
  * an input, the task is forced not-up-to-date via {@code outputs.upToDateWhen(false)} set by the
  * plugin at registration time.
  */
+@DisableCachingByDefault(
+    because =
+        "Results depend on Git state (base/target refs) which is not declared as a task input, "
+            + "so build-cache hits would return stale results for anyone else with the same source.")
 public abstract class TestImpactCheckTask extends DefaultTask {
 
   @Input
