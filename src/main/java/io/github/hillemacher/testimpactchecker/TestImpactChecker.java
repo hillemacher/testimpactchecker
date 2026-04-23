@@ -24,8 +24,8 @@ import lombok.extern.slf4j.Slf4j;
 @Slf4j
 public class TestImpactChecker {
 
-  /** Default cache directory name relative to the project path. */
-  public static final String CACHE_DIRECTORY_NAME = ".testimpactchecker/cache";
+  /** Default cache directory name relative to the project path when none is configured. */
+  public static final String DEFAULT_CACHE_DIRECTORY_NAME = ".testimpactchecker/cache";
 
   /** Default cache file name inside the cache directory. */
   public static final String TYPE_INDEX_CACHE_FILE = "type-index.v1.json";
@@ -106,7 +106,7 @@ public class TestImpactChecker {
       final ImpactAnalysisResult cached =
           runAnalysis(
               javaImpactUtils,
-              openCache(repositoryPath),
+              openCache(repositoryPath, impactCheckerConfig),
               repositoryPath,
               mainJavaDirs,
               testJavaDirs);
@@ -115,15 +115,40 @@ public class TestImpactChecker {
     }
 
     final TypeIndexCache typeIndexCache =
-        cacheMode == CacheMode.ENABLED ? openCache(repositoryPath) : new NoOpTypeIndexCache();
+        cacheMode == CacheMode.ENABLED
+            ? openCache(repositoryPath, impactCheckerConfig)
+            : new NoOpTypeIndexCache();
     final ImpactAnalysisResult result =
         runAnalysis(javaImpactUtils, typeIndexCache, repositoryPath, mainJavaDirs, testJavaDirs);
     return toReportData(result);
   }
 
-  /** Deletes the cache directory for the given project; safe to call when it does not exist. */
-  public static void clearCache(final Path repositoryPath) throws IOException {
-    final Path cacheDir = repositoryPath.resolve(CACHE_DIRECTORY_NAME);
+  /**
+   * Resolves the effective cache directory for a project: the configured {@code cacheDirectoryPath}
+   * when set, otherwise {@code <project>/.testimpactchecker/cache/}. Relative configured paths are
+   * resolved against {@code repositoryPath}.
+   */
+  public static Path resolveCacheDirectory(
+      final Path repositoryPath, final ImpactCheckerConfig impactCheckerConfig) {
+    final String configured =
+        impactCheckerConfig == null ? null : impactCheckerConfig.getCacheDirectoryPath();
+    if (configured == null || configured.isBlank()) {
+      return repositoryPath.resolve(DEFAULT_CACHE_DIRECTORY_NAME);
+    }
+    final Path configuredPath = Path.of(configured);
+    if (configuredPath.isAbsolute()) {
+      return configuredPath;
+    }
+    return repositoryPath.resolve(configuredPath);
+  }
+
+  /**
+   * Deletes the cache directory for the given project and config; safe to call when it does not
+   * exist. Honors a configured {@code cacheDirectoryPath} when present.
+   */
+  public static void clearCache(
+      final Path repositoryPath, final ImpactCheckerConfig impactCheckerConfig) throws IOException {
+    final Path cacheDir = resolveCacheDirectory(repositoryPath, impactCheckerConfig);
     if (!Files.exists(cacheDir)) {
       return;
     }
@@ -162,9 +187,10 @@ public class TestImpactChecker {
         result.testFileToFqcn());
   }
 
-  private static TypeIndexCache openCache(final Path repositoryPath) {
+  private static TypeIndexCache openCache(
+      final Path repositoryPath, final ImpactCheckerConfig impactCheckerConfig) {
     final Path cacheFile =
-        repositoryPath.resolve(CACHE_DIRECTORY_NAME).resolve(TYPE_INDEX_CACHE_FILE);
+        resolveCacheDirectory(repositoryPath, impactCheckerConfig).resolve(TYPE_INDEX_CACHE_FILE);
     return new JsonFileTypeIndexCache(cacheFile);
   }
 

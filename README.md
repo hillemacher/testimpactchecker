@@ -76,6 +76,7 @@ To avoid re-parsing unchanged `src/main/java` files on every run, the tool persi
 
 - The cache is **enabled by default**. Files whose content hash matches a cached entry skip JavaParser entirely; only changed, added, or removed files are reparsed.
 - The cache directory is safe to delete at any time and is not intended to be checked into version control. Add `.testimpactchecker/` to your `.gitignore`.
+- Override the location with the config field `cacheDirectoryPath` (e.g. set it to `build/test-impact/cache` when integrating with a build tool that already manages `build/`).
 - A `cacheVersion` field invalidates the whole cache after tool upgrades.
 - Use `--no-cache` to bypass for a single run, `--clear-cache` to delete and rebuild, and `--verify-cache` to run both the cached and uncached paths and assert parity (recommended as a one-off CI check before trusting the cache on a new codebase).
 
@@ -118,6 +119,7 @@ The tool expects a JSON configuration file with the following fields:
 - **maxPropagationDepth**: Max reverse dependency traversal depth for `TRANSITIVE` mode. Defaults to `2`.
 - **mockPolicy**: `CURRENT` (default) or `FILTER_MOCKED_PATHS`.
 - **htmlReportOutputPath** *(optional)*: Path or directory for HTML report output when `--html-report` is not supplied. Relative values are resolved from `--project`.
+- **cacheDirectoryPath** *(optional)*: Directory used to persist the main-source index cache. Defaults to `.testimpactchecker/cache/` under the project root. Relative values are resolved from `--project`; absolute values are honored as-is. Useful for build-tool integrations that want the cache under `build/` so it participates in their own caching.
 
 ### Compare a Specific Commit with a Target
 

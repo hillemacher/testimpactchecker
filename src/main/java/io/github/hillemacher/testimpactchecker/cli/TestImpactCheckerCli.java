@@ -120,8 +120,10 @@ public class TestImpactCheckerCli {
 
       final Path normalizedProjectPath = projectPath.toAbsolutePath().normalize();
       if (cmd.hasOption("clear-cache")) {
-        TestImpactChecker.clearCache(normalizedProjectPath);
-        log.info("Cleared type-index cache under {}", normalizedProjectPath);
+        TestImpactChecker.clearCache(normalizedProjectPath, impactCheckerConfig);
+        log.info(
+            "Cleared type-index cache at {}",
+            TestImpactChecker.resolveCacheDirectory(normalizedProjectPath, impactCheckerConfig));
       }
 
       final TestImpactChecker.CacheMode cacheMode = resolveCacheMode(cmd);
