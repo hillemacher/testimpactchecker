@@ -66,4 +66,13 @@ public class ImpactCheckerConfig {
    * the report target.
    */
   private String htmlReportOutputPath;
+
+  /**
+   * Optional directory used to persist the main-source index cache.
+   *
+   * <p>When unset, analysis falls back to {@code <project>/.testimpactchecker/cache/}. Relative
+   * paths are resolved from the analyzed project root, so Gradle integrations can point the cache
+   * at {@code build/test-impact/cache/} without leaking the plugin's working directory.
+   */
+  private String cacheDirectoryPath;
 }
