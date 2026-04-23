@@ -1,1 +1,2 @@
 rootProject.name = 'test-impact-checker'
+include ':plugin'

@@ -1,0 +1,31 @@
+plugins {
+    id 'java'
+    id 'io.github.hillemacher.testimpactchecker'
+}
+
+java {
+    toolchain {
+        languageVersion = JavaLanguageVersion.of(21)
+    }
+}
+
+repositories {
+    mavenCentral()
+}
+
+dependencies {
+    testImplementation platform('org.junit:junit-bom:5.10.0')
+    testImplementation 'org.junit.jupiter:junit-jupiter'
+    testRuntimeOnly 'org.junit.platform:junit-platform-launcher'
+}
+
+test {
+    useJUnitPlatform()
+}
+
+testImpact {
+    baseRef = 'HEAD~1'
+    targetRef = 'HEAD'
+    annotations = ['ImpactTest']
+    applyTo(tasks.named('test', Test))
+}
