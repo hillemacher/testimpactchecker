@@ -1,1 +1,18 @@
+pluginManagement {
+    // When run from the development workspace (IDE / GLS), locate the workspace
+    // root by walking up the directory tree and include it as a composite build
+    // so the plugin under test can be resolved without TestKit's classpath injection.
+    // When TestKit copies the fixture to a temp directory, no workspace root is
+    // found and withPluginClasspath() handles resolution as usual.
+    def dir = file('.').canonicalFile
+    for (int i = 0; i < 8; i++) {
+        if (new File(dir, 'settings.gradle').exists() && new File(dir, 'plugin/build.gradle').exists()) {
+            includeBuild dir
+            break
+        }
+        if (dir.parentFile == null) break
+        dir = dir.parentFile
+    }
+}
+
 rootProject.name = 'fixture-project'

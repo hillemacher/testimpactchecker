@@ -1,0 +1,27 @@
+{
+    "java.checkstyle.configuration": "${workspaceFolder}/config/checkstyle/checkstyle.xml",
+    "editor.defaultFormatter": "redhat.java",
+    "editor.formatOnPaste": true,
+    "java.format.settings.url": "https://raw.githubusercontent.com/google/styleguide/gh-pages/eclipse-java-google-style.xml",
+    "java.format.settings.profile": "GoogleStyle",
+    "editor.detectIndentation": false,
+    "editor.tabSize": 2,
+    "java.autobuild.enabled": false,
+    "java.configuration.updateBuildConfiguration": "interactive",
+    "files.exclude": {
+        "**/bin": true
+    },
+    "java.import.exclusions": [
+        "**/node_modules/**",
+        "**/.metadata/**",
+        "**/archetype-resources/**",
+        "**/.classpath",
+        "**/bin/**"
+    ],
+    "[json]": {
+      "editor.defaultFormatter": "vscode.json-language-features"
+    },
+    "[markdown]": {
+      "editor.defaultFormatter": "DavidAnson.vscode-markdownlint"
+    }
+}
