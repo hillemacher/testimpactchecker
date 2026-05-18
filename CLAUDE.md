@@ -64,3 +64,17 @@ Main-source parsing is the hot path, so `MainSourceIndexBuilder` consults a SHA-
 - Style: Checkstyle 10.21.3 with the config at `config/checkstyle/checkstyle.xml` (generated jte sources and `**/gg/jte/generated/**` are excluded). HTML reports under `build/reports/checkstyle/`.
 - Lombok is used in both modules; the annotation processor is wired in `dependencies` — keep it there when adding new source sets.
 - `slf4j-simple` is the bundled logging backend. `TestImpactCheckerCli.configureLogging` sets system properties before the first logger call, so don't initialize loggers in `main` before that runs.
+
+## AI coding tools (Serena)
+
+This project uses [Serena](https://github.com/oraios/serena) as an MCP server for symbol-aware code intelligence. When working with Claude Code or other MCP-capable agents, prefer Serena's symbolic tools over built-in file tools:
+
+- **Read a file's structure** → `get_symbols_overview`
+- **Read a specific symbol's body** → `find_symbol` with `include_body=true`
+- **Find a symbol by name** → `find_symbol`
+- **Find callers / references** → `find_referencing_symbols`
+- **Edit a whole symbol** → `replace_symbol_body`
+- **Insert near a symbol** → `insert_before_symbol` / `insert_after_symbol`
+- **Pattern replacement within a file** → `replace_content`
+
+Use the built-in `Read` / `Edit` / `Grep` tools only when Serena's tools have been tried and failed, or for non-code files (Markdown, JSON, YAML, config).
