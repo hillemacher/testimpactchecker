@@ -1,5 +1,6 @@
 package io.github.hillemacher.testimpactchecker.config;
 
+import java.util.ArrayList;
 import java.util.List;
 import lombok.Getter;
 import lombok.Setter;
@@ -75,4 +76,31 @@ public class ImpactCheckerConfig {
    * at {@code build/test-impact/cache/} without leaking the plugin's working directory.
    */
   private String cacheDirectoryPath;
+
+  /**
+   * Validates that the required configuration fields are present.
+   *
+   * <p>Jackson silently leaves missing JSON fields as {@code null}, so this method is invoked after
+   * deserialization to fail fast with a descriptive error rather than propagating a {@link
+   * NullPointerException} from downstream consumers.
+   *
+   * @throws IllegalArgumentException if {@code baseRef}, {@code targetRef}, or {@code annotations}
+   *     is missing or empty
+   */
+  public void validate() {
+    final List<String> missing = new ArrayList<>();
+    if (baseRef == null || baseRef.isBlank()) {
+      missing.add("baseRef");
+    }
+    if (targetRef == null || targetRef.isBlank()) {
+      missing.add("targetRef");
+    }
+    if (annotations == null || annotations.isEmpty()) {
+      missing.add("annotations");
+    }
+    if (!missing.isEmpty()) {
+      throw new IllegalArgumentException(
+          "Config is missing required field(s): " + String.join(", ", missing));
+    }
+  }
 }

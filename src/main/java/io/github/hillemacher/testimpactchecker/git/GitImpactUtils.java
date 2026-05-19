@@ -53,6 +53,12 @@ public class GitImpactUtils {
     log.debug("Create tree iterator for {}", ref);
 
     ObjectId id = repository.resolve(ref);
+    if (id == null) {
+      throw new IllegalArgumentException(
+          "Git ref '"
+              + ref
+              + "' could not be resolved. Check that the ref exists in the repository.");
+    }
     try (RevWalk walk = new RevWalk(repository)) {
       RevCommit commit = walk.parseCommit(id);
       RevTree tree = commit.getTree();
