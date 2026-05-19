@@ -1,5 +1,6 @@
 package io.github.hillemacher.testimpactchecker.cli;
 
+import com.fasterxml.jackson.databind.JsonMappingException;
 import com.fasterxml.jackson.databind.ObjectMapper;
 import io.github.hillemacher.testimpactchecker.ImpactDetectionReportData;
 import io.github.hillemacher.testimpactchecker.TestImpactChecker;
@@ -113,6 +114,7 @@ public class TestImpactCheckerCli {
       final ObjectMapper mapper = new ObjectMapper();
       final ImpactCheckerConfig impactCheckerConfig =
           mapper.readValue(configPath.toFile(), ImpactCheckerConfig.class);
+      impactCheckerConfig.validate();
       log.info("Validated config path {}", normalizedConfigPath);
 
       final List<OutputTarget> outputTargets = parseOutputTargets(cmd);
@@ -162,6 +164,8 @@ public class TestImpactCheckerCli {
     } catch (final IllegalArgumentException e) {
       log.error("Invalid argument: {}", e.getMessage());
       formatter.printHelp("ChangedClassTestDetectorCLI", options, true);
+    } catch (final JsonMappingException e) {
+      log.error("Config file contains invalid JSON: {}", e.getOriginalMessage());
     } catch (final IOException e) {
       log.error("Cannot access config file", e);
     }
